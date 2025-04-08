@@ -5,6 +5,10 @@ const nextConfig: NextConfig = {
   images: {
     domains: ["images.unsplash.com"],
   },
+  experimental: {
+    reactRoot: true,
+    transparentModuleResolution: true
+  }
 };
 
 export default nextConfig;
