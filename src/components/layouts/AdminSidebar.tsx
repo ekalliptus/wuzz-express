@@ -35,15 +35,39 @@ const SIDEBAR_STATE_KEY = 'admin_sidebar_open';
  */
 export default function AdminSidebar() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuthContext();
+
+  // Deteksi jika perangkat adalah mobile
+  useEffect(() => {
+    const checkIfMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    // Check saat mount
+    checkIfMobile();
+    
+    // Tambahkan event listener untuk resize
+    window.addEventListener('resize', checkIfMobile);
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener('resize', checkIfMobile);
+    };
+  }, []);
 
   // Inisialisasi status sidebar dari localStorage
   useEffect(() => {
     const savedState = localStorage.getItem(SIDEBAR_STATE_KEY);
     if (savedState !== null) {
       setSidebarOpen(savedState === 'true');
+    }
+    
+    // Auto close pada mobile
+    if (window.innerWidth < 768) {
+      setSidebarOpen(false);
     }
   }, []);
 
@@ -116,14 +140,22 @@ export default function AdminSidebar() {
 
   return (
     <>
+      {/* Mobile Overlay */}
+      {isMobile && sidebarOpen && (
+        <div 
+          className="fixed inset-0 z-30 bg-gray-900 bg-opacity-50 transition-opacity"
+          onClick={toggleSidebar}
+        />
+      )}
+      
       {/* Toggle Button untuk Mobile */}
       <button
         onClick={toggleSidebar}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
+        className="fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
         aria-label={sidebarOpen ? "Tutup sidebar" : "Buka sidebar"}
       >
         {sidebarOpen ? (
-          <ChevronLeftIcon className="w-6 h-6 text-gray-600" />
+          <XMarkIcon className="w-6 h-6 text-gray-600" />
         ) : (
           <Bars3Icon className="w-6 h-6 text-gray-600" />
         )}
@@ -132,13 +164,10 @@ export default function AdminSidebar() {
       {/* Sidebar */}
       <aside
         className={classNames(
-          sidebarOpen ? 'translate-x-0 w-64' : 'translate-x-0 w-16 sm:translate-x-0',
-          'top-0 left-0 z-40 h-full pt-5 transition-all duration-300 bg-white border-r border-gray-200 lg:translate-x-0 shadow-md'
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0 md:w-16',
+          'fixed top-0 left-0 z-40 h-full pt-5 transition-all duration-300 bg-white border-r border-gray-200 shadow-md',
+          isMobile ? 'w-64' : (sidebarOpen ? 'w-64' : 'w-16')
         )}
-        style={{
-          position: 'absolute',
-          width: sidebarOpen ? 'var(--sidebar-width-open)' : 'var(--sidebar-width-collapsed)'
-        }}
       >
         <div className="h-full px-3 pb-4 overflow-y-auto bg-white flex flex-col">
           <div className={classNames(

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Navbar from "@/components/layouts/Navbar";
 import { geistSans, geistMono } from "@/lib/fonts";
 
@@ -22,8 +22,27 @@ export default function BaseLayout({
   sidebar = null,
 }: BaseLayoutProps) {
   const [sidebarState, setSidebarState] = useState<'open' | 'collapsed'>('open');
+  const [isMobile, setIsMobile] = useState(false);
   const baseBodyClasses = `${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`;
   const bodyClasses = `${baseBodyClasses} ${additionalBodyClasses}`.trim();
+
+  // Deteksi jika perangkat adalah mobile
+  useEffect(() => {
+    const checkIfMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    // Check saat mount
+    checkIfMobile();
+    
+    // Tambahkan event listener untuk resize
+    window.addEventListener('resize', checkIfMobile);
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener('resize', checkIfMobile);
+    };
+  }, []);
 
   // Cek status sidebar dari localStorage
   useEffect(() => {
@@ -87,9 +106,10 @@ export default function BaseLayout({
           data-sidebar-state={sidebar ? sidebarState : 'none'}
           style={{
             paddingLeft: sidebar 
-              ? (sidebarState === 'open' 
-                ? 'calc(var(--sidebar-width-open) + 1rem)' 
-                : 'calc(var(--sidebar-width-collapsed) + 1rem)')
+              ? (isMobile ? '1rem' : 
+                 (sidebarState === 'open' 
+                  ? 'calc(var(--sidebar-width-open) + 1rem)' 
+                  : 'calc(var(--sidebar-width-collapsed) + 1rem)'))
               : '1rem'
           }}
         >

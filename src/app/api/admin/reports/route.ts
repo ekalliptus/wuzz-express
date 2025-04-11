@@ -3,7 +3,28 @@ import { neon } from '@neondatabase/serverless';
 
 export const dynamic = 'force-dynamic';
 
+// Helper function untuk memeriksa autentikasi
+function isAuthenticated(request: NextRequest) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return false;
+  }
+
+  // Pada implementasi sebenarnya Anda perlu memverifikasi token dengan benar
+  // Namun untuk saat ini, kita hanya memeriksa keberadaan token
+  const token = authHeader.split(' ')[1];
+  return !!token;
+}
+
 export async function GET(request: NextRequest) {
+  // Periksa autentikasi
+  if (!isAuthenticated(request)) {
+    return NextResponse.json(
+      { error: 'Unauthorized' }, 
+      { status: 401 }
+    );
+  }
+
   try {
     const type = request.nextUrl.searchParams.get('type');
     

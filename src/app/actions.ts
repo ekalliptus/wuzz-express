@@ -55,7 +55,17 @@ export async function getShipments(page = 1, limit = 10, status?: string) {
       url += `&status=${status}`;
     }
     
-    const response = await fetch(url);
+    let token = '';
+    if (typeof window !== 'undefined') {
+      token = localStorage.getItem('wuzz_user') ? JSON.parse(localStorage.getItem('wuzz_user') || '{}').id : '';
+    }
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
     if (!response.ok) {
       throw new Error(`Error fetching shipments: ${response.statusText}`);
     }
@@ -270,7 +280,17 @@ export async function getCustomers(page = 1, limit = 10, status?: string) {
       url += `&status=${status}`;
     }
     
-    const response = await fetch(url);
+    let token = '';
+    if (typeof window !== 'undefined') {
+      token = localStorage.getItem('wuzz_user') ? JSON.parse(localStorage.getItem('wuzz_user') || '{}').id : '';
+    }
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
     if (!response.ok) {
       throw new Error(`Error fetching customers: ${response.statusText}`);
     }
@@ -302,7 +322,17 @@ export async function getReports(type?: string) {
       url += `?type=${type}`;
     }
     
-    const response = await fetch(url);
+    let token = '';
+    if (typeof window !== 'undefined') {
+      token = localStorage.getItem('wuzz_user') ? JSON.parse(localStorage.getItem('wuzz_user') || '{}').id : '';
+    }
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
     if (!response.ok) {
       throw new Error(`Error fetching reports: ${response.statusText}`);
     }
@@ -332,7 +362,17 @@ export async function getLocations(type?: string) {
       url += `?type=${type}`;
     }
     
-    const response = await fetch(url);
+    let token = '';
+    if (typeof window !== 'undefined') {
+      token = localStorage.getItem('wuzz_user') ? JSON.parse(localStorage.getItem('wuzz_user') || '{}').id : '';
+    }
+    
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
     if (!response.ok) {
       throw new Error(`Error fetching locations: ${response.statusText}`);
     }
