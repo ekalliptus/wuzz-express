@@ -84,16 +84,14 @@ export interface TrackingEvent {
 }
 
 export interface Location {
-  id: string;
+  id: number | string;
   name: string;
   address: string;
   city: string;
   province: string;
-  postalCode: string;
-  latitude: number;
-  longitude: number;
-  type: 'warehouse' | 'distribution_center' | 'pickup_point';
-  isActive: boolean;
+  phone: string;
+  email?: string;
+  maps_url?: string;
 }
 
 export interface DashboardStats {

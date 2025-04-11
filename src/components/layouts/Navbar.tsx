@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useState } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import { Dialog, Disclosure, Popover, Transition } from '@headlessui/react';
 import {
   Bars3Icon,
@@ -9,10 +9,13 @@ import {
   MapPinIcon,
   TicketIcon,
   UserIcon,
+  PhoneIcon,
+  ShoppingBagIcon,
 } from '@heroicons/react/24/outline';
 import { ChevronDownIcon } from '@heroicons/react/20/solid';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import Image from 'next/image';
 
 const services = [
   {
@@ -25,7 +28,7 @@ const services = [
     name: 'Ekspedisi Antar Pulau',
     description: 'Layanan pengiriman barang antar pulau di seluruh Indonesia',
     href: '/layanan/antar-pulau',
-    icon: TruckIcon,
+    icon: ShoppingBagIcon,
   },
   {
     name: 'Ekspedisi Khusus',
@@ -41,20 +44,49 @@ function classNames(...classes: string[]) {
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
 
+  // Deteksi scroll untuk mengubah tampilan navbar
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 10) {
+        setScrolled(true);
+      } else {
+        setScrolled(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   return (
-    <header className="bg-white border-b border-gray-200">
-      <nav className="mx-auto flex max-w-7xl items-center justify-between p-6 lg:px-8" aria-label="Global">
+    <header className={classNames(
+      scrolled ? 'shadow-md py-2' : 'py-4',
+      'sticky top-0 z-50 bg-white border-b border-gray-200 transition-all duration-300'
+    )}>
+      <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 lg:px-8" aria-label="Global">
         <div className="flex lg:flex-1">
-          <Link href="/" className="-m-1.5 p-1.5">
+          <Link href="/" className="-m-1.5 p-1.5 flex items-center">
             <span className="sr-only">Wuzz Express</span>
             <div className="flex items-center">
-              <TruckIcon className="h-8 w-auto text-blue-600" />
-              <span className="ml-2 text-xl font-bold text-gray-900">Wuzz</span>
+              <div className="relative h-10 w-10 overflow-hidden">
+                <Image 
+                  src="/wuzz-logo.svg"
+                  alt="Wuzz Logo"
+                  width={32}
+                  height={32}
+                  className="h-8 w-8 text-blue-600 absolute inset-0 m-auto"
+                  priority
+                />
+              </div>
+              <span className="ml-2 text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">Wuzz</span>
+              <span className="hidden sm:inline-block text-sm font-semibold ml-1 text-gray-600">Express</span>
             </div>
           </Link>
         </div>
+
         <div className="flex lg:hidden">
           <button
             type="button"
@@ -65,12 +97,13 @@ export default function Navbar() {
             <Bars3Icon className="h-6 w-6" aria-hidden="true" />
           </button>
         </div>
-        <Popover.Group className="hidden lg:flex lg:gap-x-12">
+
+        <Popover.Group className="hidden lg:flex lg:gap-x-8">
           <Link
             href="/"
             className={classNames(
-              pathname === '/' ? 'text-blue-600' : 'text-gray-900',
-              'text-sm font-semibold leading-6 hover:text-blue-600'
+              pathname === '/' ? 'text-blue-600' : 'text-gray-700',
+              'text-sm font-medium leading-6 hover:text-blue-600 transition-colors duration-200 flex items-center'
             )}
           >
             Beranda
@@ -78,8 +111,8 @@ export default function Navbar() {
           <Popover className="relative">
             <Popover.Button
               className={classNames(
-                pathname.startsWith('/layanan') ? 'text-blue-600' : 'text-gray-900',
-                'flex items-center gap-x-1 text-sm font-semibold leading-6 hover:text-blue-600'
+                pathname.startsWith('/layanan') ? 'text-blue-600' : 'text-gray-700',
+                'flex items-center gap-x-1 text-sm font-medium leading-6 hover:text-blue-600 transition-colors duration-200 outline-none'
               )}
             >
               Layanan
@@ -95,14 +128,14 @@ export default function Navbar() {
               leaveFrom="opacity-100 translate-y-0"
               leaveTo="opacity-0 translate-y-1"
             >
-              <Popover.Panel className="absolute -left-8 top-full z-10 mt-3 w-screen max-w-md overflow-hidden rounded-3xl bg-white shadow-lg ring-1 ring-gray-900/5">
+              <Popover.Panel className="absolute -left-8 top-full z-10 mt-3 w-screen max-w-md overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-gray-900/5">
                 <div className="p-4">
                   {services.map((service) => (
                     <div
                       key={service.name}
-                      className="group relative flex items-center gap-x-6 rounded-lg p-4 text-sm leading-6 hover:bg-gray-50"
+                      className="group relative flex items-center gap-x-6 rounded-lg p-4 text-sm leading-6 hover:bg-gray-50 transition-colors duration-150"
                     >
-                      <div className="flex h-11 w-11 flex-none items-center justify-center rounded-lg bg-gray-50 group-hover:bg-white">
+                      <div className="flex h-11 w-11 flex-none items-center justify-center rounded-lg bg-blue-50 group-hover:bg-blue-100 transition-colors duration-150">
                         <service.icon className="h-6 w-6 text-blue-600" aria-hidden="true" />
                       </div>
                       <div className="flex-auto">
@@ -115,6 +148,22 @@ export default function Navbar() {
                     </div>
                   ))}
                 </div>
+                <div className="bg-gray-50 px-8 py-6">
+                  <div className="flex items-center gap-x-3">
+                    <h3 className="text-sm font-semibold leading-6 text-gray-900">Butuh bantuan?</h3>
+                    <span className="rounded-full bg-blue-600/10 px-3 py-1 text-xs font-semibold leading-5 text-blue-600">24/7</span>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-gray-600">
+                    Tim layanan pelanggan kami siap membantu Anda
+                  </p>
+                  <button
+                    type="button"
+                    className="mt-4 flex w-full items-center justify-center gap-x-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                  >
+                    <PhoneIcon className="h-4 w-4" />
+                    Hubungi Kami
+                  </button>
+                </div>
               </Popover.Panel>
             </Transition>
           </Popover>
@@ -122,8 +171,8 @@ export default function Navbar() {
           <Link
             href="/tarif"
             className={classNames(
-              pathname === '/tarif' ? 'text-blue-600' : 'text-gray-900',
-              'text-sm font-semibold leading-6 hover:text-blue-600'
+              pathname === '/tarif' ? 'text-blue-600' : 'text-gray-700',
+              'text-sm font-medium leading-6 hover:text-blue-600 transition-colors duration-200'
             )}
           >
             Cek Tarif
@@ -131,8 +180,8 @@ export default function Navbar() {
           <Link
             href="/lacak"
             className={classNames(
-              pathname === '/lacak' ? 'text-blue-600' : 'text-gray-900',
-              'text-sm font-semibold leading-6 hover:text-blue-600'
+              pathname === '/lacak' ? 'text-blue-600' : 'text-gray-700',
+              'text-sm font-medium leading-6 hover:text-blue-600 transition-colors duration-200'
             )}
           >
             Lacak Kiriman
@@ -140,8 +189,8 @@ export default function Navbar() {
           <Link
             href="/lokasi"
             className={classNames(
-              pathname === '/lokasi' ? 'text-blue-600' : 'text-gray-900',
-              'text-sm font-semibold leading-6 hover:text-blue-600'
+              pathname === '/lokasi' ? 'text-blue-600' : 'text-gray-700',
+              'text-sm font-medium leading-6 hover:text-blue-600 transition-colors duration-200'
             )}
           >
             Lokasi
@@ -149,31 +198,41 @@ export default function Navbar() {
           <Link
             href="/kontak"
             className={classNames(
-              pathname === '/kontak' ? 'text-blue-600' : 'text-gray-900',
-              'text-sm font-semibold leading-6 hover:text-blue-600'
+              pathname === '/kontak' ? 'text-blue-600' : 'text-gray-700',
+              'text-sm font-medium leading-6 hover:text-blue-600 transition-colors duration-200'
             )}
           >
             Kontak
           </Link>
         </Popover.Group>
-        <div className="hidden lg:flex lg:flex-1 lg:justify-end">
+        
+        <div className="hidden lg:flex lg:flex-1 lg:justify-end items-center">
           <Link
             href="/auth/login"
-            className="text-sm font-semibold leading-6 text-gray-900 hover:text-blue-600"
+            className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors duration-200 flex items-center gap-x-1"
           >
-            Masuk <span aria-hidden="true">&rarr;</span>
+            <UserIcon className="h-5 w-5" />
+            <span>Admin</span>
           </Link>
         </div>
       </nav>
+      
+      {/* Mobile menu */}
       <Dialog as="div" className="lg:hidden" open={mobileMenuOpen} onClose={setMobileMenuOpen}>
         <div className="fixed inset-0 z-10" />
         <Dialog.Panel className="fixed inset-y-0 right-0 z-10 w-full overflow-y-auto bg-white px-6 py-6 sm:max-w-sm sm:ring-1 sm:ring-gray-900/10">
           <div className="flex items-center justify-between">
-            <Link href="/" className="-m-1.5 p-1.5">
+            <Link href="/" className="-m-1.5 p-1.5" onClick={() => setMobileMenuOpen(false)}>
               <span className="sr-only">Wuzz Express</span>
               <div className="flex items-center">
-                <TruckIcon className="h-8 w-auto text-blue-600" />
-                <span className="ml-2 text-xl font-bold text-gray-900">Wuzz</span>
+                <Image 
+                  src="/wuzz-logo.svg"
+                  alt="Wuzz Logo"
+                  width={32}
+                  height={32}
+                  className="h-8 w-8 text-blue-600"
+                  priority
+                />
               </div>
             </Link>
             <button
@@ -185,14 +244,15 @@ export default function Navbar() {
               <XMarkIcon className="h-6 w-6" aria-hidden="true" />
             </button>
           </div>
+          
           <div className="mt-6 flow-root">
             <div className="-my-6 divide-y divide-gray-500/10">
               <div className="space-y-2 py-6">
                 <Link
                   href="/"
                   className={classNames(
-                    pathname === '/' ? 'text-blue-600' : 'text-gray-900',
-                    '-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 hover:bg-gray-50'
+                    pathname === '/' ? 'text-blue-600 bg-blue-50' : 'text-gray-900',
+                    '-mx-3 flex items-center gap-x-3 rounded-lg px-3 py-2 text-base font-medium leading-7 hover:bg-gray-50'
                   )}
                   onClick={() => setMobileMenuOpen(false)}
                 >
@@ -203,8 +263,8 @@ export default function Navbar() {
                     <>
                       <Disclosure.Button
                         className={classNames(
-                          pathname.startsWith('/layanan') ? 'text-blue-600' : 'text-gray-900',
-                          'flex w-full items-center justify-between rounded-lg py-2 pl-3 pr-3.5 text-base font-semibold leading-7 hover:bg-gray-50'
+                          pathname.startsWith('/layanan') ? 'text-blue-600 bg-blue-50' : 'text-gray-900',
+                          'flex w-full items-center justify-between rounded-lg py-2 pl-3 pr-3.5 text-base font-medium leading-7 hover:bg-gray-50'
                         )}
                       >
                         Layanan
@@ -222,9 +282,10 @@ export default function Navbar() {
                             key={service.name}
                             as={Link}
                             href={service.href}
-                            className="block rounded-lg py-2 pl-6 pr-3 text-sm font-semibold leading-7 text-gray-900 hover:bg-gray-50"
+                            className="block rounded-lg py-2 pl-6 pr-3 text-sm font-medium leading-7 text-gray-900 hover:bg-gray-50 flex items-center gap-x-3"
                             onClick={() => setMobileMenuOpen(false)}
                           >
+                            <service.icon className="h-5 w-5 text-blue-600" />
                             {service.name}
                           </Disclosure.Button>
                         ))}
@@ -235,8 +296,8 @@ export default function Navbar() {
                 <Link
                   href="/tarif"
                   className={classNames(
-                    pathname === '/tarif' ? 'text-blue-600' : 'text-gray-900',
-                    '-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 hover:bg-gray-50'
+                    pathname === '/tarif' ? 'text-blue-600 bg-blue-50' : 'text-gray-900',
+                    '-mx-3 flex items-center gap-x-3 rounded-lg px-3 py-2 text-base font-medium leading-7 hover:bg-gray-50'
                   )}
                   onClick={() => setMobileMenuOpen(false)}
                 >
@@ -245,8 +306,8 @@ export default function Navbar() {
                 <Link
                   href="/lacak"
                   className={classNames(
-                    pathname === '/lacak' ? 'text-blue-600' : 'text-gray-900',
-                    '-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 hover:bg-gray-50'
+                    pathname === '/lacak' ? 'text-blue-600 bg-blue-50' : 'text-gray-900',
+                    '-mx-3 flex items-center gap-x-3 rounded-lg px-3 py-2 text-base font-medium leading-7 hover:bg-gray-50'
                   )}
                   onClick={() => setMobileMenuOpen(false)}
                 >
@@ -255,8 +316,8 @@ export default function Navbar() {
                 <Link
                   href="/lokasi"
                   className={classNames(
-                    pathname === '/lokasi' ? 'text-blue-600' : 'text-gray-900',
-                    '-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 hover:bg-gray-50'
+                    pathname === '/lokasi' ? 'text-blue-600 bg-blue-50' : 'text-gray-900',
+                    '-mx-3 flex items-center gap-x-3 rounded-lg px-3 py-2 text-base font-medium leading-7 hover:bg-gray-50'
                   )}
                   onClick={() => setMobileMenuOpen(false)}
                 >
@@ -265,8 +326,8 @@ export default function Navbar() {
                 <Link
                   href="/kontak"
                   className={classNames(
-                    pathname === '/kontak' ? 'text-blue-600' : 'text-gray-900',
-                    '-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 hover:bg-gray-50'
+                    pathname === '/kontak' ? 'text-blue-600 bg-blue-50' : 'text-gray-900',
+                    '-mx-3 flex items-center gap-x-3 rounded-lg px-3 py-2 text-base font-medium leading-7 hover:bg-gray-50'
                   )}
                   onClick={() => setMobileMenuOpen(false)}
                 >
@@ -276,10 +337,10 @@ export default function Navbar() {
               <div className="py-6">
                 <Link
                   href="/auth/login"
-                  className="-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
+                  className="-mx-3 block rounded-lg px-3 py-2.5 text-base font-medium leading-7 text-gray-900 hover:bg-gray-50"
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  Masuk
+                  Admin Login
                 </Link>
               </div>
             </div>

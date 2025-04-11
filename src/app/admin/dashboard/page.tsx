@@ -1,418 +1,336 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
-import {
-  TruckIcon,
-  UsersIcon,
-  CurrencyRupeeIcon,
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { 
+  HomeIcon, 
+  TruckIcon, 
+  UserIcon, 
+  DocumentTextIcon, 
   MapPinIcon,
-  Bars3Icon,
-  BellIcon,
+  CogIcon,
   UserCircleIcon,
-  ArrowDownIcon,
-  ArrowUpIcon,
-  ArrowPathIcon,
-  ChevronRightIcon,
+  Bars3Icon,
+  ChevronLeftIcon,
+  BellIcon
 } from '@heroicons/react/24/outline';
-import { ChartBarIcon, HomeIcon } from '@heroicons/react/24/solid';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
+import { getDashboardData } from '@/app/actions';
 
-// Data statistik dummy
-const stats = [
-  { name: 'Total Pengiriman', value: '3,256', icon: TruckIcon, change: '12%', changeType: 'increase' },
-  { name: 'Pengiriman Dalam Proses', value: '356', icon: ArrowPathIcon, change: '5.4%', changeType: 'increase' },
-  { name: 'Pelanggan Aktif', value: '1,467', icon: UsersIcon, change: '3.2%', changeType: 'increase' },
-  { name: 'Pendapatan Bulan Ini', value: 'Rp 276.3jt', icon: CurrencyRupeeIcon, change: '8.1%', changeType: 'increase' },
-];
+// Status dan teks yang sesuai disimpan dalam objek untuk kemudahan pemeliharaan
+const STATUS_CONFIG = {
+  pending: {
+    color: 'bg-yellow-100 text-yellow-800',
+    text: 'Menunggu Pickup'
+  },
+  processing: {
+    color: 'bg-blue-100 text-blue-800',
+    text: 'Diproses'
+  },
+  in_transit: {
+    color: 'bg-indigo-100 text-indigo-800',
+    text: 'Dalam Perjalanan'
+  },
+  delivered: {
+    color: 'bg-green-100 text-green-800',
+    text: 'Terkirim'
+  },
+  cancelled: {
+    color: 'bg-gray-100 text-gray-800',
+    text: 'Dibatalkan'
+  }
+};
 
-// Data pengiriman terbaru dummy
-const recentShipments = [
-  {
-    id: 'WUZZ12345678',
-    customer: 'PT Maju Jaya',
-    destination: 'Surabaya',
-    price: 'Rp 105,000',
-    status: 'in_transit',
-    date: '10 Apr 2024',
-  },
-  {
-    id: 'WUZZ12345679',
-    customer: 'Toko Makmur',
-    destination: 'Bandung',
-    price: 'Rp 87,500',
-    status: 'delivered',
-    date: '09 Apr 2024',
-  },
-  {
-    id: 'WUZZ12345680',
-    customer: 'CV Sejahtera',
-    destination: 'Medan',
-    price: 'Rp 230,000',
-    status: 'processing',
-    date: '08 Apr 2024',
-  },
-  {
-    id: 'WUZZ12345681',
-    customer: 'UD Berkah',
-    destination: 'Makassar',
-    price: 'Rp 325,000',
-    status: 'pending',
-    date: '08 Apr 2024',
-  },
-  {
-    id: 'WUZZ12345682',
-    customer: 'PT Abadi Sentosa',
-    destination: 'Yogyakarta',
-    price: 'Rp 97,500',
-    status: 'delivered',
-    date: '07 Apr 2024',
-  },
-];
+// Format Tanggal
+const formatDate = (dateString: string) => {
+  const options: Intl.DateTimeFormatOptions = {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  };
+  return new Date(dateString).toLocaleDateString('id-ID', options);
+};
 
-const navigation = [
-  { name: 'Dashboard', href: '/admin/dashboard', icon: HomeIcon, current: true },
-  { name: 'Pengiriman', href: '/admin/shipments', icon: TruckIcon, current: false },
-  { name: 'Pelanggan', href: '/admin/customers', icon: UsersIcon, current: false },
-  { name: 'Lokasi', href: '/admin/locations', icon: MapPinIcon, current: false },
-  { name: 'Laporan', href: '/admin/reports', icon: ChartBarIcon, current: false },
-];
+// Format Mata Uang
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0
+  }).format(amount);
+};
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(' ');
 }
 
 export default function AdminDashboardPage() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isLoadingDashboard, setIsLoadingDashboard] = useState(true);
+  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  
+  const router = useRouter();
+  const { user, isAuthenticated, loading, logout } = useAuth();
 
-  const getStatusClass = (status: string) => {
-    switch (status) {
-      case 'delivered':
-        return 'bg-green-100 text-green-800';
-      case 'in_transit':
-        return 'bg-blue-100 text-blue-800';
-      case 'processing':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'pending':
-        return 'bg-gray-100 text-gray-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+  // Ambil data dashboard dari server
+  useEffect(() => {
+    async function loadDashboardData() {
+      try {
+        const data = await getDashboardData();
+        setDashboardData(data);
+      } catch (err: any) {
+        setError(err.message || 'Gagal memuat data dashboard');
+        console.error('Error loading dashboard data:', err);
+      } finally {
+        setIsLoadingDashboard(false);
+      }
     }
-  };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'delivered':
-        return 'Terkirim';
-      case 'in_transit':
-        return 'Dalam Pengiriman';
-      case 'processing':
-        return 'Diproses';
-      case 'pending':
-        return 'Menunggu';
-      default:
-        return status;
+    if (isAuthenticated && user && user.role === 'admin') {
+      loadDashboardData();
     }
-  };
+  }, [isAuthenticated, user]);
+
+  // Redirect jika bukan admin
+  useEffect(() => {
+    if (!loading && (!isAuthenticated || (user && user.role !== 'admin'))) {
+      router.push('/auth/login');
+    }
+  }, [loading, isAuthenticated, user, router]);
+
+  // Helper functions dengan useCallback
+  const getStatusColor = useCallback((status: string) => {
+    return STATUS_CONFIG[status as keyof typeof STATUS_CONFIG]?.color || 'bg-gray-100 text-gray-800';
+  }, []);
+
+  const getStatusText = useCallback((status: string) => {
+    return STATUS_CONFIG[status as keyof typeof STATUS_CONFIG]?.text || status;
+  }, []);
+
+  // Memoize calculated values
+  const totalShipments = useMemo(() => {
+    if (!dashboardData?.shipmentsByStatus) return 0;
+    return dashboardData.shipmentsByStatus.reduce((acc: number, curr: any) => acc + parseInt(curr.count), 0);
+  }, [dashboardData?.shipmentsByStatus]);
+  
+  const deliveredCount = useMemo(() => {
+    if (!dashboardData?.shipmentsByStatus) return 0;
+    return dashboardData.shipmentsByStatus.find((s: any) => s.status === 'delivered')?.count || 0;
+  }, [dashboardData?.shipmentsByStatus]);
+  
+  const inTransitCount = useMemo(() => {
+    if (!dashboardData?.shipmentsByStatus) return 0;
+    return dashboardData.shipmentsByStatus.find((s: any) => s.status === 'in_transit')?.count || 0;
+  }, [dashboardData?.shipmentsByStatus]);
+
+  const handleLogout = useCallback(() => {
+    logout();
+    router.push('/auth/login');
+  }, [logout, router]);
+
+  if (loading || !isAuthenticated) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+        <p className="text-gray-600">Memuat dashboard...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="fixed top-0 z-50 w-full bg-white border-b border-gray-200">
-        <div className="px-3 py-3 lg:px-5 lg:pl-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-2 text-gray-600 rounded cursor-pointer lg:hidden hover:text-gray-900 hover:bg-gray-100"
-              >
-                <Bars3Icon className="w-6 h-6" />
-              </button>
-              <div className="flex items-center ml-2 md:mr-24">
-                <span className="self-center text-xl font-semibold whitespace-nowrap">Wuzz Admin</span>
-              </div>
-            </div>
-            <div className="flex items-center">
-              <div className="flex items-center ml-3">
-                <div>
-                  <button
-                    type="button"
-                    className="flex text-sm bg-gray-800 rounded-full focus:ring-4 focus:ring-gray-300"
-                  >
-                    <UserCircleIcon className="w-8 h-8 text-gray-400" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+    <div className="min-h-screen p-4">
+      {/* Error display */}
+      {error && (
+        <div className="mb-3 p-3 border border-red-300 bg-red-50 text-red-800 rounded-lg">
+          <p className="font-medium">Error: {error}</p>
+          <button 
+            onClick={() => setError(null)}
+            className="mt-1 text-sm font-medium text-red-600 hover:text-red-800"
+          >
+            Tutup
+          </button>
         </div>
-      </nav>
+      )}
 
-      <aside
-        className={classNames(
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full',
-          'fixed top-0 left-0 z-40 w-64 h-screen pt-20 transition-transform bg-white border-r border-gray-200 lg:translate-x-0'
-        )}
-      >
-        <div className="h-full px-3 pb-4 overflow-y-auto bg-white">
-          <ul className="space-y-2 font-medium">
-            {navigation.map((item) => (
-              <li key={item.name}>
-                <Link
-                  href={item.href}
-                  className={classNames(
-                    item.current
-                      ? 'bg-blue-50 text-blue-600'
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
-                    'group flex items-center p-2 rounded-lg'
-                  )}
-                >
-                  <item.icon
-                    className={classNames(
-                      item.current ? 'text-blue-600' : 'text-gray-500 group-hover:text-gray-900',
-                      'w-5 h-5 me-3'
-                    )}
-                  />
-                  <span className="ms-3">{item.name}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </aside>
-
-      <div className="p-4 lg:ml-64 mt-14">
-        <div className="p-4 mb-8">
-          <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            Selamat datang kembali, Admin! Berikut adalah ringkasan data Wuzz Ekspedisi.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {stats.map((stat, index) => (
-            <div key={index} className="bg-white rounded-lg shadow p-4 sm:p-6">
+      {/* Dashboard cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        {isLoadingDashboard ? (
+          Array(4).fill(0).map((_, i) => (
+            <div key={i} className="h-24 rounded-lg animate-pulse bg-gray-200 shadow-sm"></div>
+          ))
+        ) : dashboardData ? (
+          <>
+            <div className="p-3 bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200">
               <div className="flex items-center">
-                <div className="p-3 rounded-full bg-blue-50 text-blue-600">
-                  <stat.icon className="w-6 h-6" />
+                <div className="p-2 mr-3 text-blue-500 bg-blue-100 rounded-full">
+                  <TruckIcon className="w-5 h-5" aria-hidden="true" />
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">{stat.name}</p>
-                  <p className="text-xl font-semibold text-gray-900">{stat.value}</p>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Total Pengiriman</p>
+                  <p className="text-xl font-semibold text-gray-900">
+                    {totalShipments}
+                  </p>
                 </div>
-              </div>
-              <div className="mt-4">
-                <span
-                  className={classNames(
-                    stat.changeType === 'increase' ? 'text-green-600' : 'text-red-600',
-                    'inline-flex items-center text-sm font-medium'
-                  )}
-                >
-                  {stat.changeType === 'increase' ? (
-                    <ArrowUpIcon className="w-3 h-3 mr-1" />
-                  ) : (
-                    <ArrowDownIcon className="w-3 h-3 mr-1" />
-                  )}
-                  {stat.change} dari bulan lalu
-                </span>
               </div>
             </div>
-          ))}
-        </div>
+            
+            <div className="p-3 bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200">
+              <div className="flex items-center">
+                <div className="p-2 mr-3 text-green-500 bg-green-100 rounded-full">
+                  <TruckIcon className="w-5 h-5" aria-hidden="true" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Pengiriman Terkirim</p>
+                  <p className="text-xl font-semibold text-gray-900">
+                    {deliveredCount}
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-3 bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200">
+              <div className="flex items-center">
+                <div className="p-2 mr-3 text-yellow-500 bg-yellow-100 rounded-full">
+                  <TruckIcon className="w-5 h-5" aria-hidden="true" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Dalam Perjalanan</p>
+                  <p className="text-xl font-semibold text-gray-900">
+                    {inTransitCount}
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-3 bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200">
+              <div className="flex items-center">
+                <div className="p-2 mr-3 text-indigo-500 bg-indigo-100 rounded-full">
+                  <DocumentTextIcon className="w-5 h-5" aria-hidden="true" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Total Pendapatan</p>
+                  <p className="text-xl font-semibold text-gray-900">
+                    {formatCurrency(parseFloat(dashboardData.revenue || 0))}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : null}
+      </div>
 
-        <div className="bg-white rounded-lg shadow mb-8">
-          <div className="p-6 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">Pengiriman Terbaru</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left text-gray-500">
-              <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3">
-                    Nomor Resi
-                  </th>
-                  <th scope="col" className="px-6 py-3">
-                    Pelanggan
-                  </th>
-                  <th scope="col" className="px-6 py-3">
-                    Tujuan
-                  </th>
-                  <th scope="col" className="px-6 py-3">
-                    Harga
-                  </th>
-                  <th scope="col" className="px-6 py-3">
-                    Status
-                  </th>
-                  <th scope="col" className="px-6 py-3">
-                    Tanggal
-                  </th>
-                  <th scope="col" className="px-6 py-3">
-                    <span className="sr-only">Edit</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentShipments.map((shipment) => (
-                  <tr key={shipment.id} className="bg-white border-b hover:bg-gray-50">
-                    <th scope="row" className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
-                      {shipment.id}
-                    </th>
-                    <td className="px-6 py-4">{shipment.customer}</td>
-                    <td className="px-6 py-4">{shipment.destination}</td>
-                    <td className="px-6 py-4">{shipment.price}</td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={classNames(
-                          getStatusClass(shipment.status),
-                          'inline-flex rounded-full px-2 text-xs font-semibold py-0.5'
-                        )}
-                      >
+      {/* Recent shipments */}
+      <div className="bg-white border rounded-lg shadow-sm p-4 mb-4">
+        <h2 className="text-lg font-semibold text-gray-900 pb-3 border-b border-gray-200 mb-3">
+          Pengiriman Terbaru
+        </h2>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left text-gray-500">
+            <thead className="text-xs text-gray-700 uppercase bg-gray-50 rounded-t-lg">
+              <tr>
+                <th scope="col" className="px-4 py-2 rounded-tl-lg">
+                  No Resi
+                </th>
+                <th scope="col" className="px-4 py-2">
+                  Tujuan
+                </th>
+                <th scope="col" className="px-4 py-2">
+                  Jenis Layanan
+                </th>
+                <th scope="col" className="px-4 py-2">
+                  Tanggal
+                </th>
+                <th scope="col" className="px-4 py-2 rounded-tr-lg">
+                  Status
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoadingDashboard ? (
+                Array(5).fill(0).map((_, i) => (
+                  <tr key={i} className="bg-white border-b hover:bg-gray-50">
+                    <td colSpan={5} className="px-4 py-2">
+                      <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                    </td>
+                  </tr>
+                ))
+              ) : dashboardData?.recentShipments?.length ? (
+                dashboardData.recentShipments.map((shipment: any, index: number) => (
+                  <tr key={index} className="bg-white border-b hover:bg-gray-50 transition-colors duration-150">
+                    <td className="px-4 py-2 font-medium text-gray-900">
+                      <Link href={`/admin/shipments/${shipment.id}`} className="hover:underline hover:text-blue-600 transition-colors duration-150">
+                        {shipment.receipt_number}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-2">
+                      {shipment.destination_city}
+                    </td>
+                    <td className="px-4 py-2">
+                      {shipment.service_type}
+                    </td>
+                    <td className="px-4 py-2">
+                      {formatDate(shipment.created_at)}
+                    </td>
+                    <td className="px-4 py-2">
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(shipment.status)}`}>
                         {getStatusText(shipment.status)}
                       </span>
                     </td>
-                    <td className="px-6 py-4">{shipment.date}</td>
-                    <td className="px-6 py-4 text-right">
-                      <Link
-                        href={`/admin/shipments/${shipment.id}`}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        Detail
-                      </Link>
-                    </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="p-4 border-t border-gray-200">
-            <Link
-              href="/admin/shipments"
-              className="flex items-center justify-center text-sm text-blue-600 hover:text-blue-700"
+                ))
+              ) : (
+                <tr className="bg-white border-b">
+                  <td colSpan={5} className="px-4 py-6 text-center text-gray-500">
+                    <p className="text-base">Tidak ada data pengiriman</p>
+                    <p className="text-sm mt-1 text-gray-400">Pengiriman baru akan muncul di sini</p>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        
+        {dashboardData?.recentShipments?.length > 0 && (
+          <div className="mt-3 text-right">
+            <Link 
+              href="/admin/shipments" 
+              className="text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
             >
-              Lihat semua pengiriman
-              <ChevronRightIcon className="w-4 h-4 ml-1" />
+              Lihat semua pengiriman →
             </Link>
           </div>
-        </div>
+        )}
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Aktivitas Terbaru</h3>
-            <ul className="space-y-4">
-              <li className="flex items-start">
-                <div className="flex-shrink-0">
-                  <span className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                    <TruckIcon className="w-4 h-4" />
-                  </span>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm text-gray-900">
-                    Pengiriman <span className="font-medium">WUZZ12345678</span> sedang dalam perjalanan ke Surabaya
-                  </p>
-                  <p className="text-xs text-gray-500">2 jam yang lalu</p>
-                </div>
-              </li>
-              <li className="flex items-start">
-                <div className="flex-shrink-0">
-                  <span className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600">
-                    <TruckIcon className="w-4 h-4" />
-                  </span>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm text-gray-900">
-                    Pengiriman <span className="font-medium">WUZZ12345679</span> telah diterima oleh Toko Makmur
-                  </p>
-                  <p className="text-xs text-gray-500">3 jam yang lalu</p>
-                </div>
-              </li>
-              <li className="flex items-start">
-                <div className="flex-shrink-0">
-                  <span className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600">
-                    <UsersIcon className="w-4 h-4" />
-                  </span>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm text-gray-900">
-                    Pelanggan baru <span className="font-medium">PT Sejahtera Abadi</span> telah mendaftar
-                  </p>
-                  <p className="text-xs text-gray-500">5 jam yang lalu</p>
-                </div>
-              </li>
-              <li className="flex items-start">
-                <div className="flex-shrink-0">
-                  <span className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-600">
-                    <CurrencyRupeeIcon className="w-4 h-4" />
-                  </span>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm text-gray-900">
-                    Pembayaran <span className="font-medium">Rp 2,500,000</span> diterima dari PT Maju Jaya
-                  </p>
-                  <p className="text-xs text-gray-500">1 hari yang lalu</p>
-                </div>
-              </li>
-            </ul>
-            <div className="mt-4">
-              <Link
-                href="/admin/activities"
-                className="flex items-center justify-center text-sm text-blue-600 hover:text-blue-700"
-              >
-                Lihat semua aktivitas
-                <ChevronRightIcon className="w-4 h-4 ml-1" />
-              </Link>
-            </div>
-          </div>
+      {/* Shipment stats */}
+      <div className="bg-white border rounded-lg shadow-sm p-4 mb-4">
+        <h2 className="text-lg font-semibold text-gray-900 pb-3 border-b border-gray-200 mb-3">
+          Statistik Status Pengiriman
+        </h2>
 
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Kinerja Pengiriman</h3>
-            <div className="space-y-4">
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-sm font-medium text-gray-700">Pengiriman Tepat Waktu</span>
-                  <span className="text-sm font-medium text-gray-700">92%</span>
+        {isLoadingDashboard ? (
+          <div className="h-48 bg-gray-200 rounded animate-pulse"></div>
+        ) : dashboardData?.shipmentsByStatus?.length ? (
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+            {dashboardData.shipmentsByStatus.map((status: any) => (
+              <div key={status.status} className="p-3 bg-white border rounded-lg shadow-sm text-center hover:shadow-md transition-shadow duration-200">
+                <div className={`inline-flex items-center justify-center w-12 h-12 rounded-full mb-2 ${getStatusColor(status.status)}`}>
+                  <span className="text-base font-bold">{status.count}</span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-green-600 h-2 rounded-full" style={{ width: '92%' }}></div>
-                </div>
+                <p className="font-medium text-gray-700 text-sm">{getStatusText(status.status)}</p>
               </div>
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-sm font-medium text-gray-700">Kepuasan Pelanggan</span>
-                  <span className="text-sm font-medium text-gray-700">95%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-blue-600 h-2 rounded-full" style={{ width: '95%' }}></div>
-                </div>
-              </div>
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-sm font-medium text-gray-700">Pengiriman Tanpa Kerusakan</span>
-                  <span className="text-sm font-medium text-gray-700">98%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-purple-600 h-2 rounded-full" style={{ width: '98%' }}></div>
-                </div>
-              </div>
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-sm font-medium text-gray-700">Efisiensi Rute</span>
-                  <span className="text-sm font-medium text-gray-700">87%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-yellow-600 h-2 rounded-full" style={{ width: '87%' }}></div>
-                </div>
-              </div>
-            </div>
-            <div className="mt-6 grid grid-cols-2 gap-4">
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm font-medium text-gray-500">Rata-rata Waktu Pengiriman</p>
-                <p className="text-xl font-semibold text-gray-900">2.3 hari</p>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm font-medium text-gray-500">Total Pengiriman Bulan Ini</p>
-                <p className="text-xl font-semibold text-gray-900">1,247</p>
-              </div>
-            </div>
+            ))}
           </div>
-        </div>
+        ) : (
+          <div className="py-8 text-center">
+            <p className="text-gray-500 mb-2">Tidak ada data statistik</p>
+            <p className="text-sm text-gray-400">Status pengiriman akan muncul di sini saat tersedia</p>
+          </div>
+        )}
       </div>
     </div>
   );

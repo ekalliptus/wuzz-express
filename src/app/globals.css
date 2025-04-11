@@ -2,9 +2,106 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Base */
 :root {
+  --primary: #0070f3;
+  --success: #10B981;
+  --warning: #FBBF24;
+  --danger: #EF4444;
+  --info: #3B82F6;
   --background: #ffffff;
   --foreground: #171717;
+  --sidebar-width-open: 16rem; /* 64px * 4 = 16rem (dalam satuan rem) */
+  --sidebar-width-collapsed: 4rem; /* 16px * 4 = 4rem (dalam satuan rem) */
+  --sidebar-transition: 0.3s ease;
+}
+
+/* Transitions */
+.transition-width {
+  transition-property: width;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 300ms;
+}
+
+/* Sidebar optimizations */
+.sidebar-container {
+  transition: all var(--sidebar-transition);
+  z-index: 50;
+  position: fixed;
+}
+
+.sidebar-container aside {
+  transition: width var(--sidebar-transition), transform var(--sidebar-transition);
+}
+
+/* Content adjustment */
+main {
+  transition: margin-left var(--sidebar-transition), width var(--sidebar-transition);
+}
+
+/* Mobile view */
+@media (max-width: 1023px) {
+  .sidebar-container + main[data-sidebar-state="open"] {
+    margin-left: 0;
+    width: 100%;
+  }
+  
+  .sidebar-container + main[data-sidebar-state="collapsed"] {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
+/* Desktop view */
+@media (min-width: 1024px) {
+  .sidebar-container {
+    position: relative;
+    height: 100vh;
+  }
+  
+  .sidebar-container + main[data-sidebar-state="open"] {
+    margin-left: 0;
+    padding-left: var(--sidebar-width-open); 
+    width: 100%;
+  }
+  
+  .sidebar-container + main[data-sidebar-state="collapsed"] {
+    margin-left: 0;
+    padding-left: var(--sidebar-width-collapsed);
+    width: 100%;
+  }
+  
+  /* Main container filling available space */
+  main[data-sidebar-state] {
+    flex: 1;
+    min-width: 0; /* Prevent content from overflowing */
+  }
+}
+
+/* Font optimizations */
+@layer base {
+  html {
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cdcdcd;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a0a0a0;
 }
 
 @theme inline {
