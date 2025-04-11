@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/context/AuthContext';
 import Link from 'next/link';
 import { 
   TruckIcon, 
@@ -50,7 +50,7 @@ export default function ShipmentsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   
   const router = useRouter();
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuthContext();
 
   // Ambil data pengiriman
   const fetchShipments = useCallback(async () => {
@@ -66,9 +66,16 @@ export default function ShipmentsPage() {
     }
   }, [page, statusFilter]);
 
+  // Load data shipments
   useEffect(() => {
-    if (isAuthenticated && user?.role === 'admin') {
-      fetchShipments();
+    if (isAuthenticated && (user?.role === 'admin' || user?.role === 'staff')) {
+      console.log("Fetching shipments data...");
+      try {
+        fetchShipments();
+        console.log("Shipments fetched successfully");
+      } catch (error) {
+        console.error("Error fetching shipments:", error);
+      }
     }
   }, [isAuthenticated, user, fetchShipments]);
 
@@ -218,7 +225,7 @@ export default function ShipmentsPage() {
                   <tr key={shipment.id} className="border-b hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium text-gray-900">
                       <Link 
-                        href={`/admin/shipments/${shipment.id}`}
+                        href={`/admin/shipments/detail/${shipment.id}`}
                         className="hover:text-blue-600 hover:underline"
                       >
                         {shipment.receipt_number}
@@ -235,7 +242,7 @@ export default function ShipmentsPage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Link
-                        href={`/admin/shipments/${shipment.id}`}
+                        href={`/admin/shipments/detail/${shipment.id}`}
                         className="font-medium text-blue-600 hover:text-blue-800"
                       >
                         Detail

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/context/AuthContext';
 import Link from 'next/link';
 import { 
   MapPinIcon, 
@@ -13,110 +13,11 @@ import {
   BuildingOfficeIcon,
   PhoneIcon
 } from '@heroicons/react/24/outline';
+import { getLocations } from '@/app/actions';
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(' ');
 }
-
-// Data lokasi dummy untuk demo
-const DUMMY_LOCATIONS = [
-  {
-    id: 1,
-    name: 'Kantor Pusat Jakarta',
-    address: 'Jl. Sudirman No. 123, Jakarta Pusat',
-    city: 'Jakarta',
-    province: 'DKI Jakarta',
-    postal_code: '10220',
-    phone: '021-5551234',
-    email: 'jakarta@wuzz.co.id',
-    type: 'hq',
-    status: 'active',
-    coordinates: {
-      lat: -6.2088,
-      lng: 106.8456
-    }
-  },
-  {
-    id: 2,
-    name: 'Cabang Surabaya',
-    address: 'Jl. Pemuda No. 45, Surabaya',
-    city: 'Surabaya',
-    province: 'Jawa Timur',
-    postal_code: '60271',
-    phone: '031-5559876',
-    email: 'surabaya@wuzz.co.id',
-    type: 'branch',
-    status: 'active',
-    coordinates: {
-      lat: -7.2575,
-      lng: 112.7521
-    }
-  },
-  {
-    id: 3,
-    name: 'Cabang Bandung',
-    address: 'Jl. Asia Afrika No. 67, Bandung',
-    city: 'Bandung',
-    province: 'Jawa Barat',
-    postal_code: '40112',
-    phone: '022-4238765',
-    email: 'bandung@wuzz.co.id',
-    type: 'branch',
-    status: 'active',
-    coordinates: {
-      lat: -6.9175,
-      lng: 107.6191
-    }
-  },
-  {
-    id: 4,
-    name: 'Gudang Bekasi',
-    address: 'Jl. Industri No. 89, Bekasi',
-    city: 'Bekasi',
-    province: 'Jawa Barat',
-    postal_code: '17214',
-    phone: '021-8234567',
-    email: 'gudang.bekasi@wuzz.co.id',
-    type: 'warehouse',
-    status: 'active',
-    coordinates: {
-      lat: -6.2382,
-      lng: 106.9976
-    }
-  },
-  {
-    id: 5,
-    name: 'Cabang Denpasar',
-    address: 'Jl. Raya Kuta No. 34, Denpasar',
-    city: 'Denpasar',
-    province: 'Bali',
-    postal_code: '80361',
-    phone: '0361-754321',
-    email: 'denpasar@wuzz.co.id',
-    type: 'branch',
-    status: 'active',
-    coordinates: {
-      lat: -8.6705,
-      lng: 115.2126
-    }
-  },
-  {
-    id: 6,
-    name: 'Gudang Semarang',
-    address: 'Jl. Majapahit No. 56, Semarang',
-    city: 'Semarang',
-    province: 'Jawa Tengah',
-    postal_code: '50176',
-    phone: '024-7619832',
-    email: 'gudang.semarang@wuzz.co.id',
-    type: 'warehouse',
-    status: 'maintenance',
-    coordinates: {
-      lat: -7.0051,
-      lng: 110.4381
-    }
-  }
-];
 
 export default function LocationsPage() {
   const [locations, setLocations] = useState<any[]>([]);
@@ -126,42 +27,50 @@ export default function LocationsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   
   const router = useRouter();
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuthContext();
 
-  // Load dummy data untuk demo
-  useEffect(() => {
-    const fetchLocations = () => {
-      setLoading(true);
-      try {
-        let filteredData = [...DUMMY_LOCATIONS];
-        
-        // Filter berdasarkan tipe
-        if (typeFilter) {
-          filteredData = filteredData.filter(location => location.type === typeFilter);
-        }
-        
-        // Filter berdasarkan search term
-        if (searchTerm) {
-          const term = searchTerm.toLowerCase();
-          filteredData = filteredData.filter(location => 
-            location.name.toLowerCase().includes(term) || 
-            location.city.toLowerCase().includes(term) ||
-            location.address.toLowerCase().includes(term)
-          );
-        }
-        
-        setLocations(filteredData);
-      } catch (err: any) {
-        setError('Gagal memuat data lokasi');
-      } finally {
-        setLoading(false);
+  // Fetch data lokasi dari database
+  const fetchLocations = useCallback(async () => {
+    setLoading(true);
+    try {
+      console.log('Fetching locations data...');
+      const result = await getLocations(typeFilter || undefined);
+      console.log('Fetched locations data:', result);
+      
+      // Cek apakah ada error dari server action
+      if (result.error) {
+        setError(result.error);
+        setLocations([]);
+        return;
       }
-    };
+      
+      // Filter berdasarkan search term jika ada
+      let filteredLocations = result.locations;
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        filteredLocations = filteredLocations.filter((location: any) => 
+          location.name.toLowerCase().includes(term) || 
+          location.city.toLowerCase().includes(term) ||
+          location.address.toLowerCase().includes(term)
+        );
+      }
+      
+      setLocations(filteredLocations);
+    } catch (err: any) {
+      console.error('Error fetching locations:', err);
+      setError(err.message || 'Gagal memuat data lokasi. Silakan coba lagi nanti.');
+      setLocations([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [typeFilter, searchTerm]);
 
+  // Load data lokasi saat komponen dimuat
+  useEffect(() => {
     if (isAuthenticated && user?.role === 'admin') {
       fetchLocations();
     }
-  }, [isAuthenticated, user, typeFilter, searchTerm]);
+  }, [isAuthenticated, user, fetchLocations]);
 
   // Redirect jika bukan admin
   useEffect(() => {
@@ -172,7 +81,7 @@ export default function LocationsPage() {
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Search sudah ditangani oleh effect
+    fetchLocations();
   };
 
   const getLocationTypeText = (type: string) => {
@@ -289,11 +198,12 @@ export default function LocationsPage() {
             Gudang
           </button>
         </div>
+        
         <div className="flex-grow">
           <form onSubmit={handleSearchSubmit} className="flex">
             <input
               type="text"
-              placeholder="Cari lokasi..."
+              placeholder="Cari nama, kota, atau alamat..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="flex-grow rounded-l-lg border border-gray-300 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -311,17 +221,39 @@ export default function LocationsPage() {
       {/* Error display */}
       {error && (
         <div className="mb-4 p-3 border border-red-300 bg-red-50 text-red-800 rounded-lg">
-          <p className="font-medium">Error: {error}</p>
-          <button 
-            onClick={() => setError(null)}
-            className="mt-1 text-sm font-medium text-red-600 hover:text-red-800"
-          >
-            Tutup
-          </button>
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="font-medium">Error:</p>
+              <p className="mt-1">{error}</p>
+            </div>
+            <button 
+              onClick={() => setError(null)}
+              className="ml-4 inline-flex items-center p-1.5 bg-red-50 text-red-700 rounded-full hover:bg-red-100"
+              aria-label="Tutup"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+          <div className="mt-3 flex justify-end">
+            <button 
+              onClick={() => fetchLocations()}
+              className="text-sm font-medium px-3 py-1.5 bg-red-100 text-red-800 rounded hover:bg-red-200"
+            >
+              Coba Lagi
+            </button>
+            <button 
+              onClick={() => setError(null)}
+              className="ml-2 text-sm font-medium px-3 py-1.5 bg-gray-100 text-gray-800 rounded hover:bg-gray-200"
+            >
+              Tutup
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Daftar Lokasi */}
+      {/* Grid Lokasi */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {loading ? (
           Array(6).fill(0).map((_, i) => (
@@ -358,7 +290,7 @@ export default function LocationsPage() {
                   <div>
                     <p className="text-gray-700 text-sm">{location.address}</p>
                     <p className="text-gray-700 text-sm">
-                      {location.city}, {location.province} {location.postal_code}
+                      {location.city}, {location.province}
                     </p>
                   </div>
                 </div>
@@ -374,7 +306,7 @@ export default function LocationsPage() {
                 </div>
               </div>
               
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center pt-3 border-t">
                 <span className={classNames(
                   "px-2 py-1 text-xs font-medium rounded-full",
                   getStatusColor(location.status)
@@ -419,7 +351,7 @@ export default function LocationsPage() {
         )}
       </div>
 
-      {/* Peta Lokasi Preview (Cuma placeholder) */}
+      {/* Peta Lokasi */}
       {locations.length > 0 && (
         <div className="mt-8 bg-white p-5 rounded-lg border shadow-sm">
           <h3 className="text-lg font-semibold text-gray-900 mb-3">Peta Lokasi</h3>

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/context/AuthContext';
 import { 
   DocumentTextIcon, 
   ArrowDownTrayIcon,
@@ -12,59 +12,11 @@ import {
   TruckIcon,
   CurrencyDollarIcon
 } from '@heroicons/react/24/outline';
+import { getReports } from '@/app/actions';
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(' ');
 }
-
-// Data dummy untuk laporan
-const DUMMY_REPORTS = [
-  {
-    id: 'rep001',
-    title: 'Laporan Pengiriman Bulanan',
-    description: 'Menampilkan statistik pengiriman dalam periode satu bulan',
-    type: 'shipping',
-    format: 'excel',
-    last_generated: '2023-08-15T14:30:00Z',
-    period: 'Agustus 2023'
-  },
-  {
-    id: 'rep002',
-    title: 'Laporan Pendapatan Harian',
-    description: 'Menampilkan pendapatan harian dari semua pengiriman',
-    type: 'financial',
-    format: 'pdf',
-    last_generated: '2023-08-20T09:15:00Z',
-    period: '20 Agustus 2023'
-  },
-  {
-    id: 'rep003',
-    title: 'Laporan Status Pengiriman',
-    description: 'Menampilkan statistik status pengiriman saat ini',
-    type: 'status',
-    format: 'excel',
-    last_generated: '2023-08-18T11:45:00Z',
-    period: 'Seluruh Waktu'
-  },
-  {
-    id: 'rep004',
-    title: 'Laporan Performa Kurir',
-    description: 'Menampilkan statistik performa dan efisiensi kurir',
-    type: 'performance',
-    format: 'pdf',
-    last_generated: '2023-08-10T16:20:00Z',
-    period: 'Agustus 2023'
-  },
-  {
-    id: 'rep005',
-    title: 'Laporan Pengiriman Tahunan',
-    description: 'Menampilkan statistik pengiriman dalam periode satu tahun',
-    type: 'shipping',
-    format: 'excel',
-    last_generated: '2023-01-05T10:30:00Z',
-    period: '2023'
-  }
-];
 
 export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState('all');
@@ -73,31 +25,39 @@ export default function ReportsPage() {
   const [error, setError] = useState<string | null>(null);
   
   const router = useRouter();
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuthContext();
 
-  // Load dummy data untuk demo
-  useEffect(() => {
-    const fetchReports = () => {
-      setLoading(true);
-      try {
-        // Filter berdasarkan tab aktif
-        let filteredReports = [...DUMMY_REPORTS];
-        if (activeTab !== 'all') {
-          filteredReports = filteredReports.filter(report => report.type === activeTab);
-        }
-        
-        setReports(filteredReports);
-      } catch (err: any) {
-        setError('Gagal memuat data laporan');
-      } finally {
-        setLoading(false);
+  // Fetch data reports dari database
+  const fetchReports = useCallback(async () => {
+    setLoading(true);
+    try {
+      console.log('Fetching reports data...');
+      const result = await getReports(activeTab !== 'all' ? activeTab : undefined);
+      console.log('Fetched reports data:', result);
+      
+      // Cek apakah ada error dari server action
+      if (result.error) {
+        setError(result.error);
+        setReports([]);
+        return;
       }
-    };
+      
+      setReports(result.data);
+    } catch (err: any) {
+      console.error('Error fetching reports:', err);
+      setError(err.message || 'Gagal memuat data laporan. Silakan coba lagi nanti.');
+      setReports([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeTab]);
 
+  // Load data laporan saat komponen dimuat
+  useEffect(() => {
     if (isAuthenticated && user?.role === 'admin') {
       fetchReports();
     }
-  }, [isAuthenticated, user, activeTab]);
+  }, [isAuthenticated, user, fetchReports, activeTab]);
 
   // Redirect jika bukan admin
   useEffect(() => {
@@ -143,7 +103,7 @@ export default function ReportsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="mb-5 border-b border-gray-200">
+      <div className="mb-6 border-b border-gray-200">
         <ul className="flex flex-wrap -mb-px">
           <li className="mr-2">
             <button
@@ -216,18 +176,40 @@ export default function ReportsPage() {
       {/* Error display */}
       {error && (
         <div className="mb-4 p-3 border border-red-300 bg-red-50 text-red-800 rounded-lg">
-          <p className="font-medium">Error: {error}</p>
-          <button 
-            onClick={() => setError(null)}
-            className="mt-1 text-sm font-medium text-red-600 hover:text-red-800"
-          >
-            Tutup
-          </button>
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="font-medium">Error:</p>
+              <p className="mt-1">{error}</p>
+            </div>
+            <button 
+              onClick={() => setError(null)}
+              className="ml-4 inline-flex items-center p-1.5 bg-red-50 text-red-700 rounded-full hover:bg-red-100"
+              aria-label="Tutup"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+          <div className="mt-3 flex justify-end">
+            <button 
+              onClick={() => fetchReports()}
+              className="text-sm font-medium px-3 py-1.5 bg-red-100 text-red-800 rounded hover:bg-red-200"
+            >
+              Coba Lagi
+            </button>
+            <button 
+              onClick={() => setError(null)}
+              className="ml-2 text-sm font-medium px-3 py-1.5 bg-gray-100 text-gray-800 rounded hover:bg-gray-200"
+            >
+              Tutup
+            </button>
+          </div>
         </div>
       )}
 
       {/* Laporan */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         {loading ? (
           Array(3).fill(0).map((_, i) => (
             <div key={i} className="bg-white p-5 rounded-lg border shadow-sm animate-pulse">

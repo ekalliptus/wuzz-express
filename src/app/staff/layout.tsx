@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/context/AuthContext';
 import BaseLayout from '@/components/layouts/BaseLayout';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import StaffSidebar from '@/components/layouts/StaffSidebar';
@@ -13,7 +13,7 @@ export default function StaffLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { isAuthenticated, user, loading, checkAuthStatus } = useAuth();
+  const { isAuthenticated, user, loading, checkAuthStatus } = useAuthContext();
 
   useEffect(() => {
     const verifyAuth = async () => {

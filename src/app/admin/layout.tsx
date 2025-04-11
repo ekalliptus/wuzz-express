@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/context/AuthContext';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import BaseLayout from '@/components/layouts/BaseLayout';
 import AdminLayoutWrapper from '@/components/layouts/AdminLayoutWrapper';

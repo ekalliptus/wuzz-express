@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { 
   HomeIcon, 
@@ -16,7 +16,8 @@ import {
   Bars3Icon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  UserCircleIcon
+  UserCircleIcon,
+  CubeIcon
 } from '@heroicons/react/24/outline';
 
 /**
@@ -36,7 +37,7 @@ export default function AdminSidebar() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout } = useAuthContext();
 
   // Inisialisasi status sidebar dari localStorage
   useEffect(() => {
@@ -65,6 +66,12 @@ export default function AdminSidebar() {
       href: '/admin/customers', 
       icon: UserIcon, 
       current: pathname?.startsWith('/admin/customers')
+    },
+    { 
+      name: 'Jenis Layanan', 
+      href: '/admin/service-types', 
+      icon: CubeIcon, 
+      current: pathname?.startsWith('/admin/service-types')
     },
     { 
       name: 'Laporan', 

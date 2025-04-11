@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/context/AuthContext';
 
 export default function UserLayout({
   children,
@@ -10,7 +10,7 @@ export default function UserLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { isAuthenticated, loading, checkAuthStatus } = useAuth();
+  const { isAuthenticated, loading, checkAuthStatus } = useAuthContext();
 
   useEffect(() => {
     const verifyAuth = async () => {

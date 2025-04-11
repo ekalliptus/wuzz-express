@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/context/AuthContext';
 import { 
   CogIcon, 
   UserCircleIcon,
@@ -27,7 +27,7 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   
   const router = useRouter();
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuthContext();
 
   // Dummy form state untuk demo
   const [accountForm, setAccountForm] = useState({

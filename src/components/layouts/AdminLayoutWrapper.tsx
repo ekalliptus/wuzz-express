@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/context/AuthContext';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 type AdminLayoutWrapperProps = {
@@ -15,7 +15,7 @@ type AdminLayoutWrapperProps = {
  */
 export default function AdminLayoutWrapper({ children }: AdminLayoutWrapperProps) {
   const router = useRouter();
-  const { user, isAuthenticated, loading, checkAuthStatus } = useAuth();
+  const { user, isAuthenticated, loading, checkAuthStatus } = useAuthContext();
   const [isVerifying, setIsVerifying] = useState(true);
   const [hasVerified, setHasVerified] = useState(false);
 
@@ -72,8 +72,10 @@ export default function AdminLayoutWrapper({ children }: AdminLayoutWrapperProps
 
   // Render content hanya jika terautentikasi sebagai admin
   if (isAuthenticated && user && user.role === 'admin') {
+    console.log('AdminLayoutWrapper: Rendering admin content, user is authenticated admin');
     return <>{children}</>;
   }
 
+  console.log('AdminLayoutWrapper: Not rendering, authentication failed', { isAuthenticated, userRole: user?.role });
   return null;
 } 

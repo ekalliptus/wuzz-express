@@ -17,7 +17,7 @@ import {
   CheckBadgeIcon,
 } from '@heroicons/react/24/outline';
 import { HomeIcon } from '@heroicons/react/24/solid';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/context/AuthContext';
 
 // Konfigurasi status untuk digunakan di beberapa tempat
 const STATUS_CONFIG = {
@@ -84,7 +84,7 @@ const navigation = [
 
 export default function UserDashboardPage() {
   const [currentTime, setCurrentTime] = useState(new Date());
-  const { user } = useAuth();
+  const { user } = useAuthContext();
   
   // Gunakan useEffect dengan cleanup function untuk menghindari memory leak
   useEffect(() => {

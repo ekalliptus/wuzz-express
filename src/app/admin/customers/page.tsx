@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/context/AuthContext';
 import Link from 'next/link';
 import { 
   UserIcon, 
@@ -15,69 +15,11 @@ import {
   EnvelopeIcon,
   MapPinIcon
 } from '@heroicons/react/24/outline';
+import { getCustomers } from '@/app/actions';
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(' ');
 }
-
-// Data pelanggan dummy untuk demo
-const DUMMY_CUSTOMERS = [
-  {
-    id: '1',
-    name: 'Budi Santoso',
-    company: 'PT Maju Jaya',
-    email: 'budi@majujaya.co.id',
-    phone: '081234567890',
-    address: 'Jl. Sudirman No. 123, Jakarta',
-    total_shipments: 15,
-    created_at: '2023-05-15T08:30:00Z',
-    status: 'active'
-  },
-  {
-    id: '2',
-    name: 'Siti Rahayu',
-    company: 'CV Berkah Sejahtera',
-    email: 'siti@berkahsejahtera.com',
-    phone: '085678901234',
-    address: 'Jl. Gajah Mada No. 45, Surabaya',
-    total_shipments: 8,
-    created_at: '2023-06-20T10:15:00Z',
-    status: 'active'
-  },
-  {
-    id: '3',
-    name: 'Ahmad Hidayat',
-    company: 'UD Makmur Abadi',
-    email: 'ahmad@makmurabadi.id',
-    phone: '089012345678',
-    address: 'Jl. Ahmad Yani No. 67, Bandung',
-    total_shipments: 12,
-    created_at: '2023-04-10T14:45:00Z',
-    status: 'active'
-  },
-  {
-    id: '4',
-    name: 'Dewi Anggraini',
-    company: 'PT Karya Mandiri',
-    email: 'dewi@karyamandiri.co.id',
-    phone: '082345678901',
-    address: 'Jl. Diponegoro No. 89, Semarang',
-    total_shipments: 5,
-    created_at: '2023-07-05T09:20:00Z',
-    status: 'inactive'
-  },
-  {
-    id: '5',
-    name: 'Hendra Wijaya',
-    company: 'CV Tumbuh Bersama',
-    email: 'hendra@tumbuhbersama.com',
-    phone: '087890123456',
-    address: 'Jl. Pahlawan No. 34, Yogyakarta',
-    total_shipments: 20,
-    created_at: '2023-03-25T11:10:00Z',
-    status: 'active'
-  }
-];
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<any[]>([]);
@@ -87,45 +29,48 @@ export default function CustomersPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [totalItems, setTotalItems] = useState(0);
   
   const router = useRouter();
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuthContext();
 
-  // Load dummy data untuk demo
-  useEffect(() => {
-    // Di implementasi nyata, ini akan menjadi API call
-    const fetchCustomers = () => {
-      setLoading(true);
-      try {
-        // Filter data berdasarkan status jika ada
-        let filteredData = [...DUMMY_CUSTOMERS];
-        if (statusFilter) {
-          filteredData = filteredData.filter(customer => customer.status === statusFilter);
-        }
-        
-        // Filter berdasarkan search term jika ada
-        if (searchTerm) {
-          const term = searchTerm.toLowerCase();
-          filteredData = filteredData.filter(customer => 
-            customer.name.toLowerCase().includes(term) || 
-            customer.company.toLowerCase().includes(term) ||
-            customer.email.toLowerCase().includes(term)
-          );
-        }
-        
-        setCustomers(filteredData);
-        setTotalPages(Math.ceil(filteredData.length / 10));
-      } catch (err: any) {
-        setError('Gagal memuat data pelanggan');
-      } finally {
-        setLoading(false);
+  // Fetch customers data dari database
+  const fetchCustomers = useCallback(async () => {
+    setLoading(true);
+    try {
+      console.log('Fetching customers data...');
+      const result = await getCustomers(page, 10, statusFilter || undefined);
+      console.log('Fetched customers data:', result);
+      
+      // Cek apakah ada error dari server action
+      if (result.error) {
+        setError(result.error);
+        setCustomers([]);
+        setTotalItems(0);
+        setTotalPages(0);
+        return;
       }
-    };
+      
+      setCustomers(result.data);
+      setTotalItems(result.total);
+      setTotalPages(Math.ceil(result.total / result.limit));
+    } catch (err: any) {
+      console.error('Error fetching customers:', err);
+      setError(err.message || 'Gagal memuat data pelanggan. Silakan coba lagi nanti.');
+      setCustomers([]);
+      setTotalItems(0);
+      setTotalPages(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, statusFilter]);
 
+  // Load data pelanggan saat komponen dimuat
+  useEffect(() => {
     if (isAuthenticated && user?.role === 'admin') {
       fetchCustomers();
     }
-  }, [isAuthenticated, user, statusFilter, searchTerm]);
+  }, [isAuthenticated, user, fetchCustomers, page, statusFilter]);
 
   // Redirect jika bukan admin
   useEffect(() => {
@@ -147,7 +92,8 @@ export default function CustomersPage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    // Search sudah ditangani oleh effect
+    // Implement search functionality
+    fetchCustomers();
   };
 
   const formatDate = (dateString: string) => {
@@ -210,6 +156,7 @@ export default function CustomersPage() {
             Tidak Aktif
           </button>
         </div>
+        
         <div className="flex-grow">
           <form onSubmit={handleSearch} className="flex">
             <input
@@ -237,18 +184,40 @@ export default function CustomersPage() {
       {/* Error display */}
       {error && (
         <div className="mb-4 p-3 border border-red-300 bg-red-50 text-red-800 rounded-lg">
-          <p className="font-medium">Error: {error}</p>
-          <button 
-            onClick={() => setError(null)}
-            className="mt-1 text-sm font-medium text-red-600 hover:text-red-800"
-          >
-            Tutup
-          </button>
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="font-medium">Error:</p>
+              <p className="mt-1">{error}</p>
+            </div>
+            <button 
+              onClick={() => setError(null)}
+              className="ml-4 inline-flex items-center p-1.5 bg-red-50 text-red-700 rounded-full hover:bg-red-100"
+              aria-label="Tutup"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+          <div className="mt-3 flex justify-end">
+            <button 
+              onClick={() => fetchCustomers()}
+              className="text-sm font-medium px-3 py-1.5 bg-red-100 text-red-800 rounded hover:bg-red-200"
+            >
+              Coba Lagi
+            </button>
+            <button 
+              onClick={() => setError(null)}
+              className="ml-2 text-sm font-medium px-3 py-1.5 bg-gray-100 text-gray-800 rounded hover:bg-gray-200"
+            >
+              Tutup
+            </button>
+          </div>
         </div>
       )}
 
       {/* Kartu pelanggan */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         {loading ? (
           Array(6).fill(0).map((_, i) => (
             <div key={i} className="bg-white p-4 rounded-lg border shadow-sm animate-pulse">
@@ -307,7 +276,7 @@ export default function CustomersPage() {
                   Lihat Detail
                 </Link>
               </div>
-              <div className="mt-2 flex justify-between items-center text-xs">
+              <div className="flex justify-between items-center mt-2 pt-2 text-xs">
                 <span className="text-gray-500">Bergabung {formatDate(customer.created_at)}</span>
                 <span className={classNames(
                   "px-2 py-1 rounded-full",
@@ -338,13 +307,39 @@ export default function CustomersPage() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="mt-4 px-4 py-3 flex items-center justify-between border-t">
+        <div className="px-4 py-3 flex items-center justify-between border-t border rounded-lg bg-white mt-4">
+          <div className="flex-1 flex justify-between sm:hidden">
+            <button
+              onClick={() => handlePageChange(page - 1)}
+              disabled={page === 1}
+              className={classNames(
+                "relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md",
+                page === 1
+                  ? "text-gray-300 bg-gray-50 cursor-not-allowed"
+                  : "text-gray-700 bg-white hover:bg-gray-50"
+              )}
+            >
+              Sebelumnya
+            </button>
+            <button
+              onClick={() => handlePageChange(page + 1)}
+              disabled={page === totalPages}
+              className={classNames(
+                "ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md",
+                page === totalPages
+                  ? "text-gray-300 bg-gray-50 cursor-not-allowed"
+                  : "text-gray-700 bg-white hover:bg-gray-50"
+              )}
+            >
+              Berikutnya
+            </button>
+          </div>
           <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
             <div>
               <p className="text-sm text-gray-700">
                 Menampilkan <span className="font-medium">{((page - 1) * 10) + 1}</span> sampai{" "}
-                <span className="font-medium">{Math.min(page * 10, customers.length)}</span> dari{" "}
-                <span className="font-medium">{customers.length}</span> pelanggan
+                <span className="font-medium">{Math.min(page * 10, totalItems)}</span> dari{" "}
+                <span className="font-medium">{totalItems}</span> hasil
               </p>
             </div>
             <div>

@@ -9,7 +9,7 @@ import {
   ArrowDownIcon,
   ArrowUpIcon,
 } from '@heroicons/react/24/outline';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/context/AuthContext';
 
 // Data statistik dummy
 const stats = [
@@ -59,7 +59,7 @@ function classNames(...classes: string[]) {
 }
 
 export default function StaffDashboardPage() {
-  const { user } = useAuth();
+  const { user } = useAuthContext();
 
   const getStatusClass = (status: string) => {
     switch (status) {

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { geistSans, geistMono } from "@/lib/fonts";
+import { AuthProvider } from "@/context/AuthContext";
 
 export const metadata: Metadata = {
   title: "Wuzz Express | Layanan Pengiriman Antar Kota, Provinsi, dan Pulau",
@@ -19,7 +20,9 @@ export default function RootLayout({
   return (
     <html lang="id">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen`}>
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

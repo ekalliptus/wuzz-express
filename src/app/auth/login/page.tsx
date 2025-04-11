@@ -3,11 +3,11 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/context/AuthContext';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, loading: authLoading, error: authError } = useAuth();
+  const { login, loading: authLoading, error: authError } = useAuthContext();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);

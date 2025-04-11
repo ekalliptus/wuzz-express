@@ -16,7 +16,7 @@ import {
   CreditCardIcon,
   CheckCircleIcon,
 } from '@heroicons/react/24/outline';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/context/AuthContext';
 
 // Data status dan teks yang digunakan di beberapa tempat
 const STATUS_CONFIG = {
@@ -39,7 +39,7 @@ const STATUS_CONFIG = {
 };
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user } = useAuthContext();
   const [activeTab, setActiveTab] = useState('profile');
   
   // Data dummy untuk riwayat pesanan - pindahkan ke useMemo

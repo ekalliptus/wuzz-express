@@ -51,7 +51,7 @@ const ShipmentDetail = ({ shipment }: { shipment: any }) => {
     <div className="mt-8 overflow-hidden rounded-lg bg-white border border-gray-200">
       <div className="px-6 py-5 border-b border-gray-200">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-medium text-gray-900">
+          <h3 className="text-lg font-medium text-black">
             Nomor Resi: {shipment.receiptNumber}
           </h3>
           <StatusBadge status={shipment.status} />
@@ -60,32 +60,32 @@ const ShipmentDetail = ({ shipment }: { shipment: any }) => {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 border-b border-gray-200">
         <div className="px-6 py-5 border-b sm:border-b-0 sm:border-r border-gray-200">
-          <h4 className="text-xs font-medium text-gray-500">Pengirim</h4>
-          <p className="mt-1 text-sm font-medium text-gray-900">{shipment.sender?.name}</p>
-          <p className="mt-1 text-sm text-gray-500">{shipment.sender?.address}</p>
-          <p className="mt-1 text-sm text-gray-500">{shipment.sender?.phone}</p>
+          <h4 className="text-xs font-medium text-black">Pengirim</h4>
+          <p className="mt-1 text-sm font-medium text-black">{shipment.sender?.name}</p>
+          <p className="mt-1 text-sm text-black">{shipment.sender?.address}</p>
+          <p className="mt-1 text-sm text-black">{shipment.sender?.phone}</p>
         </div>
         <div className="px-6 py-5">
-          <h4 className="text-xs font-medium text-gray-500">Penerima</h4>
-          <p className="mt-1 text-sm font-medium text-gray-900">{shipment.recipient?.name}</p>
-          <p className="mt-1 text-sm text-gray-500">{shipment.recipient?.address}</p>
-          <p className="mt-1 text-sm text-gray-500">{shipment.recipient?.phone}</p>
+          <h4 className="text-xs font-medium text-black">Penerima</h4>
+          <p className="mt-1 text-sm font-medium text-black">{shipment.recipient?.name}</p>
+          <p className="mt-1 text-sm text-black">{shipment.recipient?.address}</p>
+          <p className="mt-1 text-sm text-black">{shipment.recipient?.phone}</p>
         </div>
       </div>
 
       <div className="px-6 py-5 bg-gray-50">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <h4 className="text-xs font-medium text-gray-500">Layanan</h4>
-            <p className="text-sm font-medium text-gray-900">{shipment.serviceType?.name}</p>
+            <h4 className="text-xs font-medium text-black">Layanan</h4>
+            <p className="text-sm font-medium text-black">{shipment.serviceType?.name}</p>
           </div>
           <div>
-            <h4 className="text-xs font-medium text-gray-500">Berat</h4>
-            <p className="text-sm font-medium text-gray-900">{shipment.weight} kg</p>
+            <h4 className="text-xs font-medium text-black">Berat</h4>
+            <p className="text-sm font-medium text-black">{shipment.weight} kg</p>
           </div>
           <div>
-            <h4 className="text-xs font-medium text-gray-500">Perkiraan Tiba</h4>
-            <p className="text-sm font-medium text-gray-900">
+            <h4 className="text-xs font-medium text-black">Perkiraan Tiba</h4>
+            <p className="text-sm font-medium text-black">
               {shipment.estimatedDeliveryDate ? 
                 formatDate(shipment.estimatedDeliveryDate.toString()) : 
                 '-'}

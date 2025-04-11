@@ -4,6 +4,24 @@ import { Shipment, ServiceType } from "@/types";
 import * as crypto from 'crypto';
 
 /**
+ * Mendapatkan base URL untuk API calls
+ */
+function getBaseUrl() {
+  // Server-side
+  if (typeof window === 'undefined') {
+    // Gunakan URL dari environment variable jika tersedia
+    if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+    if (process.env.NEXTAUTH_URL) return process.env.NEXTAUTH_URL;
+    
+    // Fallback ke localhost
+    return 'http://localhost:3000';
+  }
+  
+  // Client-side
+  return window.location.origin;
+}
+
+/**
  * Fungsi untuk menghash password dengan salt
  */
 function hashPassword(password: string, salt?: string): { hash: string; salt: string } {
@@ -31,52 +49,27 @@ function verifyPassword(password: string, hash: string, salt: string): boolean {
  * Mendapatkan semua data pengiriman
  */
 export async function getShipments(page = 1, limit = 10, status?: string) {
-  const sql = neon(process.env.DATABASE_URL!);
-  const offset = (page - 1) * limit;
-  
   try {
-    let shipments;
-    let countResult;
-    
+    let url = `${getBaseUrl()}/api/admin/shipments?page=${page}&limit=${limit}`;
     if (status) {
-      // Gunakan parameter binding yang benar
-      shipments = await sql`
-        SELECT s.*, st.name as service_type_name 
-        FROM shipments s
-        JOIN service_types st ON s.service_type_id = st.id
-        WHERE s.status = ${status}
-        ORDER BY s.created_at DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `;
-      
-      countResult = await sql`
-        SELECT COUNT(*) as total 
-        FROM shipments 
-        WHERE status = ${status}
-      `;
-    } else {
-      shipments = await sql`
-        SELECT s.*, st.name as service_type_name 
-        FROM shipments s
-        JOIN service_types st ON s.service_type_id = st.id
-        ORDER BY s.created_at DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `;
-      
-      countResult = await sql`
-        SELECT COUNT(*) as total FROM shipments
-      `;
+      url += `&status=${status}`;
     }
     
-    return {
-      data: shipments,
-      total: Number(countResult[0].total),
-      page,
-      limit
-    };
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Error fetching shipments: ${response.statusText}`);
+    }
+    
+    return await response.json();
   } catch (error) {
     console.error("Error fetching shipments:", error);
-    throw new Error("Gagal mengambil data pengiriman");
+    return {
+      data: [],
+      total: 0,
+      page,
+      limit,
+      error: "Gagal mengambil data pengiriman"
+    };
   }
 }
 
@@ -236,53 +229,126 @@ export async function calculateRate(
  * Mendapatkan semua jenis layanan
  */
 export async function getServiceTypes(): Promise<ServiceType[]> {
+  console.log('actions.ts: Memulai getServiceTypes');
   const sql = neon(process.env.DATABASE_URL!);
   
-  const serviceTypes = await sql`
-    SELECT * FROM service_types
-    ORDER BY name
-  `;
-  
-  return serviceTypes.map(type => ({
-    id: type.id,
-    code: type.code || '',
-    name: type.name,
-    description: type.description,
-    estimatedTime: type.estimation_days ? `${type.estimation_days} hari` : '',
-    pricePerKg: Number(type.base_price),
-    basePrice: Number(type.base_price),
-    estimationDays: type.estimation_days
-  }));
+  try {
+    console.log('actions.ts: Menjalankan SQL query untuk get service types');
+    const serviceTypes = await sql`
+      SELECT * FROM service_types
+      ORDER BY name
+    `;
+    
+    console.log('actions.ts: Hasil SQL query:', serviceTypes);
+    
+    const formattedTypes = serviceTypes.map(type => ({
+      id: type.id,
+      code: type.code || '',
+      name: type.name,
+      description: type.description,
+      estimatedTime: type.estimation_days ? `${type.estimation_days} hari` : '',
+      pricePerKg: Number(type.base_price),
+      basePrice: Number(type.base_price),
+      estimationDays: type.estimation_days
+    }));
+    
+    console.log('actions.ts: Mengembalikan hasil yang sudah diformat:', formattedTypes);
+    return formattedTypes;
+  } catch (error) {
+    console.error('actions.ts: Error dalam getServiceTypes:', error);
+    throw error;
+  }
+}
+
+/**
+ * Mendapatkan semua pelanggan
+ */
+export async function getCustomers(page = 1, limit = 10, status?: string) {
+  try {
+    let url = `${getBaseUrl()}/api/admin/customers?page=${page}&limit=${limit}`;
+    if (status) {
+      url += `&status=${status}`;
+    }
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Error fetching customers: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error("Error in getCustomers:", error);
+    const errorMessage = error instanceof Error ? 
+      `Gagal mengambil data pelanggan: ${error.message}` : 
+      "Gagal mengambil data pelanggan";
+    
+    return {
+      data: [],
+      total: 0,
+      page,
+      limit,
+      error: errorMessage
+    };
+  }
+}
+
+/**
+ * Mendapatkan laporan
+ */
+export async function getReports(type?: string) {
+  try {
+    let url = `${getBaseUrl()}/api/admin/reports`;
+    if (type) {
+      url += `?type=${type}`;
+    }
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Error fetching reports: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error("Error in getReports:", error);
+    const errorMessage = error instanceof Error ? 
+      `Gagal mengambil data laporan: ${error.message}` : 
+      "Gagal mengambil data laporan";
+    
+    return {
+      data: [],
+      total: 0,
+      error: errorMessage
+    };
+  }
 }
 
 /**
  * Mendapatkan data lokasi/cabang
  */
-export async function getLocations() {
-  const sql = neon(process.env.DATABASE_URL!);
-  
+export async function getLocations(type?: string) {
   try {
-    const locations = await sql`
-      SELECT * FROM locations
-      ORDER BY province, city, name
-    `;
+    let url = `${getBaseUrl()}/api/admin/locations`;
+    if (type) {
+      url += `?type=${type}`;
+    }
     
-    // Transformasi data sesuai dengan struktur yang diharapkan oleh komponen
-    const formattedLocations = locations.map(loc => ({
-      id: loc.id || '',
-      name: loc.name || '',
-      address: loc.address || '',
-      city: loc.city || '',
-      province: loc.province || '',
-      phone: loc.phone || '',
-      email: loc.email || '',
-      maps_url: loc.maps_url || undefined
-    }));
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Error fetching locations: ${response.statusText}`);
+    }
     
-    return { locations: formattedLocations };
+    return await response.json();
   } catch (error) {
-    console.error('Database Error:', error);
-    throw new Error('Failed to fetch locations data.');
+    console.error("Error in getLocations:", error);
+    const errorMessage = error instanceof Error ? 
+      `Gagal mengambil data lokasi: ${error.message}` : 
+      "Gagal mengambil data lokasi";
+    
+    return {
+      locations: [],
+      total: 0,
+      error: errorMessage
+    };
   }
 }
 
@@ -371,36 +437,156 @@ export async function authenticateUser(email: string, password: string) {
  * Mendapatkan data dashboard untuk admin/staff
  */
 export async function getDashboardData() {
-  const sql = neon(process.env.DATABASE_URL!);
-  
-  // Jumlah pengiriman berdasarkan status
-  const shipmentsByStatus = await sql`
-    SELECT status, COUNT(*) as count
-    FROM shipments
-    GROUP BY status
-  `;
-  
-  // Pengiriman terbaru
-  const recentShipments = await sql`
-    SELECT s.*, st.name as service_type
-    FROM shipments s
-    JOIN service_types st ON s.service_type_id = st.id
-    ORDER BY s.created_at DESC
-    LIMIT 10
-  `;
-  
-  // Total pendapatan
-  const revenue = await sql`
-    SELECT SUM(price) as total
-    FROM shipments
-    WHERE status != 'cancelled'
-  `;
-  
-  return {
-    shipmentsByStatus,
-    recentShipments,
-    revenue: revenue[0]?.total || 0
-  };
+  try {
+    const sql = neon(process.env.DATABASE_URL!);
+    
+    // Cek apakah tabel shipments dan service_types ada
+    try {
+      const shipmentsTableResult = await sql.unsafe(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'shipments'
+        ) as exists
+      `);
+      
+      const serviceTypesTableResult = await sql.unsafe(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'service_types'
+        ) as exists
+      `);
+      
+      const usersTableResult = await sql.unsafe(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'users'
+        ) as exists
+      `);
+      
+      const locationsTableResult = await sql.unsafe(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'locations'
+        ) as exists
+      `);
+      
+      const shipmentsTableExists = (shipmentsTableResult as unknown as any[])?.[0]?.exists;
+      const serviceTypesTableExists = (serviceTypesTableResult as unknown as any[])?.[0]?.exists;
+      const usersTableExists = (usersTableResult as unknown as any[])?.[0]?.exists;
+      const locationsTableExists = (locationsTableResult as unknown as any[])?.[0]?.exists;
+      
+      if (!shipmentsTableExists || !serviceTypesTableExists) {
+        // Data dummy untuk dashboard
+        return {
+          shipmentsByStatus: [
+            { status: 'pending', count: 15 },
+            { status: 'in_transit', count: 42 },
+            { status: 'delivered', count: 87 },
+            { status: 'cancelled', count: 5 }
+          ],
+          recentShipments: Array(10).fill(0).map((_, i) => ({
+            id: i + 1,
+            receipt_number: `WZ-${String(2023000 + i + 1).padStart(8, '0')}`,
+            sender_name: `Pengirim ${i + 1}`,
+            recipient_name: `Penerima ${i + 1}`,
+            origin_city: 'Jakarta',
+            destination_city: ['Surabaya', 'Bandung', 'Semarang', 'Yogyakarta', 'Denpasar'][i % 5],
+            weight: Math.floor(Math.random() * 10) + 1,
+            price: Math.floor(Math.random() * 100000) + 50000,
+            status: ['pending', 'in_transit', 'delivered', 'delivered', 'cancelled'][i % 5],
+            created_at: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString(),
+            service_type: ['Reguler', 'Express', 'Same Day', 'Ekonomi'][i % 4]
+          })),
+          revenue: 5245000,
+          userCount: 12,
+          locationCount: 8,
+          note: 'Using dummy data because tables do not exist'
+        };
+      }
+      
+      // Tabel ada, ambil data dari database
+      // Jumlah pengiriman berdasarkan status
+      const shipmentsByStatus = await sql`
+        SELECT status, COUNT(*) as count
+        FROM shipments
+        GROUP BY status
+      `;
+      
+      // Pengiriman terbaru
+      const recentShipments = await sql`
+        SELECT s.*, st.name as service_type
+        FROM shipments s
+        JOIN service_types st ON s.service_type_id = st.id
+        ORDER BY s.created_at DESC
+        LIMIT 10
+      `;
+      
+      // Total pendapatan
+      const revenue = await sql`
+        SELECT SUM(price) as total
+        FROM shipments
+        WHERE status != 'cancelled'
+      `;
+      
+      // Jumlah pengguna
+      let userCount = 0;
+      if (usersTableExists) {
+        const userCountResult = await sql`SELECT COUNT(*) as total FROM users`;
+        userCount = userCountResult[0]?.total || 0;
+      }
+      
+      // Jumlah lokasi
+      let locationCount = 0;
+      if (locationsTableExists) {
+        const locationCountResult = await sql`SELECT COUNT(*) as total FROM locations`;
+        locationCount = locationCountResult[0]?.total || 0;
+      }
+      
+      return {
+        shipmentsByStatus,
+        recentShipments,
+        revenue: revenue[0]?.total || 0,
+        userCount,
+        locationCount
+      };
+    } catch (error) {
+      throw error;
+    }
+  } catch (error) {
+    console.error('Error fetching dashboard data:', error);
+    
+    // Data dummy untuk fallback
+    return {
+      shipmentsByStatus: [
+        { status: 'pending', count: 15 },
+        { status: 'in_transit', count: 42 },
+        { status: 'delivered', count: 87 },
+        { status: 'cancelled', count: 5 }
+      ],
+      recentShipments: Array(10).fill(0).map((_, i) => ({
+        id: i + 1,
+        receipt_number: `WZ-${String(2023000 + i + 1).padStart(8, '0')}`,
+        sender_name: `Pengirim ${i + 1}`,
+        recipient_name: `Penerima ${i + 1}`,
+        origin_city: 'Jakarta',
+        destination_city: ['Surabaya', 'Bandung', 'Semarang', 'Yogyakarta', 'Denpasar'][i % 5],
+        weight: Math.floor(Math.random() * 10) + 1,
+        price: Math.floor(Math.random() * 100000) + 50000,
+        status: ['pending', 'in_transit', 'delivered', 'delivered', 'cancelled'][i % 5],
+        created_at: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString(),
+        service_type: ['Reguler', 'Express', 'Same Day', 'Ekonomi'][i % 4]
+      })),
+      revenue: 5245000,
+      userCount: 12,
+      locationCount: 8,
+      error: 'Using fallback data due to error',
+      details: error instanceof Error ? error.message : String(error)
+    };
+  }
 }
 
 /**
@@ -608,5 +794,61 @@ export async function migrateUserPasswords() {
   } catch (error) {
     console.error('Error migrating passwords:', error);
     return { success: false, message: 'Gagal migrasi password' };
+  }
+}
+
+/**
+ * Menambahkan jenis layanan baru
+ */
+export async function createServiceType(data: {
+  code: string;
+  name: string;
+  description: string;
+  estimationDays: number;
+  basePrice: number;
+}) {
+  const sql = neon(process.env.DATABASE_URL!);
+  
+  try {
+    const result = await sql`
+      INSERT INTO service_types (code, name, description, estimation_days, base_price)
+      VALUES (
+        ${data.code},
+        ${data.name}, 
+        ${data.description}, 
+        ${data.estimationDays}, 
+        ${data.basePrice}
+      )
+      RETURNING id
+    `;
+    
+    return { 
+      success: true, 
+      id: result[0].id 
+    };
+  } catch (error) {
+    console.error("Error creating service type:", error);
+    return { 
+      success: false, 
+      error: "Gagal menambahkan jenis layanan" 
+    };
+  }
+}
+
+/**
+ * Menghapus jenis layanan
+ */
+export async function deleteServiceType(id: string) {
+  const sql = neon(process.env.DATABASE_URL!);
+  
+  try {
+    await sql`DELETE FROM service_types WHERE id = ${id}`;
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting service type:", error);
+    return { 
+      success: false, 
+      error: "Gagal menghapus jenis layanan" 
+    };
   }
 } 

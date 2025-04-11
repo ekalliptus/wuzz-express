@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuthContext } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { 
   HomeIcon, 
@@ -35,7 +35,7 @@ export default function StaffSidebar() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout } = useAuthContext();
 
   // Inisialisasi status sidebar dari localStorage
   useEffect(() => {

@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, ReactNode, useState, useCallback, useEffect } from 'react';
 import { User } from '@/types';
 import { authenticateUser } from '@/app/actions';
 
-interface UseAuthReturn {
+// Tipe data untuk context
+interface AuthContextType {
   user: User | null;
   loading: boolean;
   error: string | null;
@@ -14,10 +15,11 @@ interface UseAuthReturn {
   checkAuthStatus: () => Promise<boolean>;
 }
 
-/**
- * Custom hook untuk autentikasi dan manajemen sesi pengguna
- */
-export default function useAuth(): UseAuthReturn {
+// Membuat context
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Provider component
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -126,7 +128,7 @@ export default function useAuth(): UseAuthReturn {
     localStorage.removeItem('wuzz_user');
   }, []);
 
-  return {
+  const value = {
     user,
     loading,
     error,
@@ -135,4 +137,19 @@ export default function useAuth(): UseAuthReturn {
     isAuthenticated,
     checkAuthStatus,
   };
+  
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+// Hook untuk menggunakan auth context
+export function useAuthContext(): AuthContextType {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuthContext must be used within an AuthProvider');
+  }
+  return context;
 } 

@@ -7,6 +7,7 @@ interface LoadingSpinnerProps {
   color?: string;
   text?: string;
   fullScreen?: boolean;
+  className?: string;
 }
 
 /**
@@ -17,7 +18,8 @@ export function LoadingSpinner({
   size = 'md',
   color = 'border-blue-600',
   text,
-  fullScreen = true
+  fullScreen = true,
+  className = ''
 }: LoadingSpinnerProps) {
   const sizeMap = {
     sm: 'h-8 w-8',
@@ -25,7 +27,7 @@ export function LoadingSpinner({
     lg: 'h-16 w-16'
   };
 
-  const spinnerClasses = `animate-spin rounded-full border-t-2 border-b-2 ${color} ${sizeMap[size]}`;
+  const spinnerClasses = `animate-spin rounded-full border-t-2 border-b-2 ${color} ${sizeMap[size]} ${className}`;
 
   const content = (
     <div className="flex flex-col items-center justify-center">
