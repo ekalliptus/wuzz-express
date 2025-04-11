@@ -290,50 +290,81 @@ export async function getLocations() {
  * Autentikasi user
  */
 export async function authenticateUser(email: string, password: string) {
-  const sql = neon(process.env.DATABASE_URL!);
+  console.log("Mencoba autentikasi untuk:", email);
   
-  // Ambil user berdasarkan email
-  const users = await sql`
-    SELECT * FROM users
-    WHERE email = ${email}
-  `;
-  
-  if (users.length === 0) {
-    return { success: false, message: "Email atau password salah" };
+  try {
+    // Log untuk debugging
+    console.log("DATABASE_URL tersedia:", !!process.env.DATABASE_URL);
+    console.log("DATABASE_URL dimulai dengan:", process.env.DATABASE_URL?.substring(0, 15) + "...");
+    
+    const sql = neon(process.env.DATABASE_URL!);
+    
+    // Tes koneksi database sederhana
+    console.log("Melakukan tes koneksi database...");
+    const testConnection = await sql`SELECT 1 as test`;
+    console.log("Koneksi database berhasil:", testConnection);
+    
+    // Ambil user berdasarkan email
+    console.log("Mencari user dengan email:", email);
+    const users = await sql`
+      SELECT * FROM users
+      WHERE email = ${email}
+    `;
+    
+    console.log("Jumlah user ditemukan:", users.length);
+    
+    if (users.length === 0) {
+      console.log("User tidak ditemukan");
+      return { success: false, message: "Email atau password salah" };
+    }
+    
+    const user = users[0];
+    console.log("User ditemukan dengan role:", user.role);
+    
+    // Verifikasi password (asumsi kolom password_hash dan password_salt ada di database)
+    // Jika masih menggunakan password biasa, gunakan kondisi ini sementara
+    let passwordValid = false;
+    
+    if (user.password_hash && user.password_salt) {
+      // Gunakan verifikasi dengan hash jika tersedia
+      console.log("Memverifikasi password dengan hash dan salt");
+      passwordValid = verifyPassword(password, user.password_hash, user.password_salt);
+    } else {
+      // Fallback ke password biasa untuk kompatibilitas
+      console.log("Memverifikasi password langsung (tanpa hash)");
+      passwordValid = user.password === password;
+    }
+    
+    console.log("Hasil verifikasi password:", passwordValid);
+    
+    if (!passwordValid) {
+      console.log("Password tidak valid");
+      return { success: false, message: "Email atau password salah" };
+    }
+    
+    console.log("Login berhasil untuk user:", user.email);
+    
+    // Jangan mengembalikan password/hash ke client
+    return {
+      success: true,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone || '',
+        createdAt: user.created_at,
+        updatedAt: user.updated_at
+      },
+      role: user.role
+    };
+  } catch (error) {
+    console.error("Error saat autentikasi:", error);
+    return { 
+      success: false, 
+      message: "Terjadi kesalahan saat login: " + (error instanceof Error ? error.message : String(error))
+    };
   }
-  
-  const user = users[0];
-  
-  // Verifikasi password (asumsi kolom password_hash dan password_salt ada di database)
-  // Jika masih menggunakan password biasa, gunakan kondisi ini sementara
-  let passwordValid = false;
-  
-  if (user.password_hash && user.password_salt) {
-    // Gunakan verifikasi dengan hash jika tersedia
-    passwordValid = verifyPassword(password, user.password_hash, user.password_salt);
-  } else {
-    // Fallback ke password biasa untuk kompatibilitas
-    passwordValid = user.password === password;
-  }
-  
-  if (!passwordValid) {
-    return { success: false, message: "Email atau password salah" };
-  }
-  
-  // Jangan mengembalikan password/hash ke client
-  return {
-    success: true,
-    user: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      phone: user.phone || '',
-      createdAt: user.created_at,
-      updatedAt: user.updated_at
-    },
-    role: user.role
-  };
 }
 
 /**
