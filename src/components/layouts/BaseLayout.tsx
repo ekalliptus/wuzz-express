@@ -92,6 +92,21 @@ export default function BaseLayout({
     };
   }, []);
 
+  // Menentukan padding untuk konten berdasarkan status sidebar dan isMobile
+  const getMainPadding = useCallback(() => {
+    if (!sidebar) return '1rem';
+    
+    if (isMobile) {
+      return '1rem'; // Mobile selalu 1rem karena sidebar overlay
+    } else {
+      if (sidebarState === 'open') {
+        return 'calc(var(--sidebar-width-open) + 1rem)';
+      } else {
+        return 'calc(var(--sidebar-width-collapsed) + 1rem)';
+      }
+    }
+  }, [sidebar, isMobile, sidebarState]);
+
   return (
     <div className={bodyClasses}>
       {showNavbar && <Navbar />}
@@ -105,12 +120,8 @@ export default function BaseLayout({
           className="flex-grow bg-white transition-all duration-300 p-4 overflow-auto w-full"
           data-sidebar-state={sidebar ? sidebarState : 'none'}
           style={{
-            paddingLeft: sidebar 
-              ? (isMobile ? '1rem' : 
-                 (sidebarState === 'open' 
-                  ? 'calc(var(--sidebar-width-open) + 1rem)' 
-                  : 'calc(var(--sidebar-width-collapsed) + 1rem)'))
-              : '1rem'
+            paddingLeft: getMainPadding(),
+            paddingTop: isMobile ? '3.5rem' : '1rem' // Extra top padding on mobile for the toggle button
           }}
         >
           {children}

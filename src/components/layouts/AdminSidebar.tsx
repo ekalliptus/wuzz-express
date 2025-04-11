@@ -148,23 +148,21 @@ export default function AdminSidebar() {
         />
       )}
       
-      {/* Toggle Button untuk Mobile */}
-      <button
-        onClick={toggleSidebar}
-        className="fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
-        aria-label={sidebarOpen ? "Tutup sidebar" : "Buka sidebar"}
-      >
-        {sidebarOpen ? (
-          <XMarkIcon className="w-6 h-6 text-gray-600" />
-        ) : (
+      {/* Toggle Button untuk Mobile - Hanya tampilkan ketika sidebar tertutup di mobile */}
+      {(isMobile && !sidebarOpen) && (
+        <button
+          onClick={toggleSidebar}
+          className="fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-300"
+          aria-label="Buka sidebar"
+        >
           <Bars3Icon className="w-6 h-6 text-gray-600" />
-        )}
-      </button>
+        </button>
+      )}
       
       {/* Sidebar */}
       <aside
         className={classNames(
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0 md:w-16',
+          sidebarOpen ? 'translate-x-0' : isMobile ? '-translate-x-full' : 'w-16',
           'fixed top-0 left-0 z-40 h-full pt-5 transition-all duration-300 bg-white border-r border-gray-200 shadow-md',
           isMobile ? 'w-64' : (sidebarOpen ? 'w-64' : 'w-16')
         )}
@@ -186,7 +184,7 @@ export default function AdminSidebar() {
                   onClick={toggleSidebar}
                   className="p-1 text-gray-500 rounded-lg hover:bg-gray-100 focus:outline-none"
                 >
-                  <ChevronLeftIcon className="w-5 h-5" />
+                  {isMobile ? <XMarkIcon className="w-5 h-5" /> : <ChevronLeftIcon className="w-5 h-5" />}
                 </button>
               </>
             ) : (

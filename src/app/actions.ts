@@ -46,6 +46,35 @@ function verifyPassword(password: string, hash: string, salt: string): boolean {
 }
 
 /**
+ * Fungsi helper untuk mendapatkan token otentikasi dari localStorage
+ */
+function getAuthToken() {
+  if (typeof window !== 'undefined') {
+    try {
+      const userData = localStorage.getItem('wuzz_user');
+      if (userData) {
+        const user = JSON.parse(userData);
+        return user.id;
+      }
+    } catch (error) {
+      console.error('Error getting auth token:', error);
+    }
+  }
+  return '';
+}
+
+/**
+ * Fungsi helper untuk menyiapkan headers dengan token otentikasi
+ */
+function getAuthHeaders() {
+  const token = getAuthToken();
+  return {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  };
+}
+
+/**
  * Mendapatkan semua data pengiriman
  */
 export async function getShipments(page = 1, limit = 10, status?: string) {
@@ -55,15 +84,8 @@ export async function getShipments(page = 1, limit = 10, status?: string) {
       url += `&status=${status}`;
     }
     
-    let token = '';
-    if (typeof window !== 'undefined') {
-      token = localStorage.getItem('wuzz_user') ? JSON.parse(localStorage.getItem('wuzz_user') || '{}').id : '';
-    }
-    
     const response = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+      headers: getAuthHeaders()
     });
     
     if (!response.ok) {
@@ -280,15 +302,8 @@ export async function getCustomers(page = 1, limit = 10, status?: string) {
       url += `&status=${status}`;
     }
     
-    let token = '';
-    if (typeof window !== 'undefined') {
-      token = localStorage.getItem('wuzz_user') ? JSON.parse(localStorage.getItem('wuzz_user') || '{}').id : '';
-    }
-    
     const response = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+      headers: getAuthHeaders()
     });
     
     if (!response.ok) {
@@ -322,15 +337,8 @@ export async function getReports(type?: string) {
       url += `?type=${type}`;
     }
     
-    let token = '';
-    if (typeof window !== 'undefined') {
-      token = localStorage.getItem('wuzz_user') ? JSON.parse(localStorage.getItem('wuzz_user') || '{}').id : '';
-    }
-    
     const response = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+      headers: getAuthHeaders()
     });
     
     if (!response.ok) {
@@ -362,15 +370,8 @@ export async function getLocations(type?: string) {
       url += `?type=${type}`;
     }
     
-    let token = '';
-    if (typeof window !== 'undefined') {
-      token = localStorage.getItem('wuzz_user') ? JSON.parse(localStorage.getItem('wuzz_user') || '{}').id : '';
-    }
-    
     const response = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+      headers: getAuthHeaders()
     });
     
     if (!response.ok) {

@@ -7,23 +7,47 @@ export const dynamic = 'force-dynamic';
 function isAuthenticated(request: NextRequest) {
   const authHeader = request.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.log('No valid Authorization header found');
     return false;
   }
 
-  // Pada implementasi sebenarnya Anda perlu memverifikasi token dengan benar
-  // Namun untuk saat ini, kita hanya memeriksa keberadaan token
   const token = authHeader.split(' ')[1];
-  return !!token;
+  if (!token) {
+    console.log('Token is empty');
+    return false;
+  }
+
+  try {
+    // Untuk implementasi sederhana, kita anggap token valid jika tidak kosong
+    // Pada aplikasi produksi, Anda harus melakukan verifikasi token yang tepat
+    console.log('Token received:', token);
+    return true;
+  } catch (error) {
+    console.error('Error verifying token:', error);
+    return false;
+  }
 }
 
 export async function GET(request: NextRequest) {
+  console.log('GET /api/admin/reports request received');
+  
+  // Log semua headers untuk debugging
+  const headers: { [key: string]: string } = {};
+  request.headers.forEach((value, key) => {
+    headers[key] = value;
+  });
+  console.log('Request headers:', headers);
+  
   // Periksa autentikasi
   if (!isAuthenticated(request)) {
+    console.log('Authentication failed');
     return NextResponse.json(
       { error: 'Unauthorized' }, 
       { status: 401 }
     );
   }
+
+  console.log('Authentication successful');
 
   try {
     const type = request.nextUrl.searchParams.get('type');
