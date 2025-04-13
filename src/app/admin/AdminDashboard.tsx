@@ -16,6 +16,34 @@ interface AdminDashboardProps {
   user: any;
 }
 
+// Fungsi untuk memformat tanggal
+const formatShipmentDate = (dateString: string) => {
+  if (!dateString) {
+    console.error('formatShipmentDate: dateString is empty or undefined', dateString);
+    return 'Tanggal tidak tersedia';
+  }
+
+  try {
+    const options: Intl.DateTimeFormatOptions = {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    };
+    const date = new Date(dateString);
+    
+    // Periksa apakah tanggal valid
+    if (isNaN(date.getTime())) {
+      console.error('formatShipmentDate: Invalid date from string:', dateString);
+      return 'Format tanggal tidak valid';
+    }
+    
+    return date.toLocaleDateString('id-ID', options);
+  } catch (error) {
+    console.error('formatShipmentDate: Error formatting date', error, dateString);
+    return 'Error format tanggal';
+  }
+};
+
 export default function AdminDashboard({ user }: AdminDashboardProps) {
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -24,7 +52,9 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
+        console.log('Memulai pengambilan data dashboard...');
         const data = await getDashboardData();
+        console.log('Data dashboard diterima:', data);
         setDashboardData(data);
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
@@ -223,7 +253,7 @@ export default function AdminDashboard({ user }: AdminDashboardProps) {
                           {shipment.service_type}
                         </td>
                         <td className="px-4 py-2 font-medium text-gray-900">
-                          {new Date(shipment.created_at).toLocaleDateString('id-ID')}
+                          {formatShipmentDate(shipment.created_at)}
                         </td>
                         <td className="px-4 py-2">
                           <span className={`px-2 py-1 text-xs font-medium rounded-full ${

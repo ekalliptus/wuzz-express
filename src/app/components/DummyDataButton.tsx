@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { neon } from '@neondatabase/serverless';
+import { useState, useEffect } from 'react';
 import { ExclamationTriangleIcon, CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
 
 export default function DummyDataButton() {
@@ -9,50 +8,61 @@ export default function DummyDataButton() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [details, setDetails] = useState<any>(null);
+  const [shouldRefresh, setShouldRefresh] = useState(false);
+  const [countdown, setCountdown] = useState(5);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (shouldRefresh && countdown > 0) {
+      timer = setTimeout(() => {
+        setCountdown(prev => prev - 1);
+      }, 1000);
+    } else if (shouldRefresh && countdown === 0) {
+      window.location.reload();
+    }
+    return () => clearTimeout(timer);
+  }, [shouldRefresh, countdown]);
 
   const addDummyData = async () => {
     setLoading(true);
     setMessage(null);
     setError(null);
     setDetails(null);
+    setShouldRefresh(false);
     
     try {
-      // Membaca file SQL
-      const customersResp = await fetch('/api/sql/customers');
-      const locationsResp = await fetch('/api/sql/locations');
-      const reportsResp = await fetch('/api/sql/reports');
+      console.log('DummyDataButton: Memulai inisialisasi database melalui API...');
       
-      if (!customersResp.ok || !locationsResp.ok || !reportsResp.ok) {
-        throw new Error('Gagal membaca file SQL');
-      }
-      
-      const customersSQL = await customersResp.text();
-      const locationsSQL = await locationsResp.text();
-      const reportsSQL = await reportsResp.text();
-      
-      // Mengirim request untuk membuat table dan menambahkan data dummy
-      const response = await fetch('/api/init-tables', {
+      // Gunakan API endpoint untuk inisialisasi database
+      const response = await fetch('/api/init-database', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          customers: customersSQL,
-          locations: locationsSQL,
-          reports: reportsSQL
-        }),
       });
       
-      const result = await response.json();
+      if (!response.ok) {
+        const errorResult = await response.json();
+        throw new Error(errorResult.error || `Error status ${response.status}`);
+      }
       
-      if (response.ok) {
-        setMessage(result.message || 'Data dummy berhasil ditambahkan');
-        setDetails(result);
+      const result = await response.json();
+      console.log('DummyDataButton: Hasil dari API:', result);
+      
+      if (result.success) {
+        setMessage(result.message || 'Database berhasil diinisialisasi dengan data contoh.');
+        if (result.tables) {
+          setDetails({ tables: result.tables });
+        }
+        if (result.refreshNeeded) {
+          setShouldRefresh(true);
+          setCountdown(5);
+        }
       } else {
-        throw new Error(result.error || 'Gagal menambahkan data dummy');
+        throw new Error(result.error || 'Terjadi kesalahan saat inisialisasi database');
       }
     } catch (err) {
-      console.error('Error adding dummy data:', err);
+      console.error('DummyDataButton: Error saat inisialisasi database:', err);
       setError(err instanceof Error ? err.message : 'Terjadi kesalahan');
     } finally {
       setLoading(false);
@@ -66,21 +76,21 @@ export default function DummyDataButton() {
           <ExclamationTriangleIcon className="h-8 w-8 text-yellow-500" />
         </div>
         <div className="flex-1">
-          <h2 className="text-lg font-semibold mb-2">Inisialisasi Tabel Database</h2>
+          <h2 className="text-lg font-semibold mb-2">Perbaikan Struktur Tabel Database</h2>
           <p className="text-gray-600 mb-4">
-            Gunakan tombol di bawah untuk membuat dan mengisi tabel yang diperlukan (customers, locations, reports) dengan data contoh.
-            Data yang sudah ada di tabel lain tidak akan terpengaruh.
+            Gunakan tombol di bawah untuk memperbaiki struktur tabel yang diperlukan (users, customers, locations, reports) dan mengisi data contoh.
+            Proses ini akan menambahkan kolom yang kurang dan membuat tabel yang belum ada.
           </p>
           
           <button
             onClick={addDummyData}
-            disabled={loading}
+            disabled={loading || shouldRefresh}
             className={`
               px-4 py-2 rounded-lg text-white font-medium w-full md:w-auto
-              ${loading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}
+              ${loading || shouldRefresh ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}
             `}
           >
-            {loading ? 'Sedang Menginisialisasi...' : 'Buat Tabel Database'}
+            {loading ? 'Sedang Memperbaiki...' : shouldRefresh ? `Refresh otomatis dalam ${countdown}s...` : 'Perbaiki Struktur Tabel Database'}
           </button>
           
           {message && (
@@ -88,6 +98,9 @@ export default function DummyDataButton() {
               <CheckCircleIcon className="h-5 w-5 mr-2 flex-shrink-0 text-green-500" />
               <div>
                 <p className="font-medium">{message}</p>
+                {shouldRefresh && (
+                  <p className="mt-1 text-sm">Halaman akan di-refresh otomatis dalam {countdown} detik...</p>
+                )}
                 {details && details.tables && (
                   <div className="mt-2">
                     <p className="text-sm font-medium">Tabel yang ada di database:</p>

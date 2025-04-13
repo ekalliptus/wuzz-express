@@ -1,197 +1,143 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { neon } from '@neondatabase/serverless';
+import { isAuthenticated, logRequestHeaders, injectAuthHeaderFromCookie } from '@/lib/authHelpers';
 
 export const dynamic = 'force-dynamic';
 
-// Helper function untuk memeriksa autentikasi
-function isAuthenticated(request: NextRequest) {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    console.log('No valid Authorization header found');
-    return false;
-  }
+// CORS Helper
+function addCorsHeaders(response: NextResponse) {
+  const origin = 'http://localhost:3000';
+  response.headers.set('Access-Control-Allow-Origin', origin);
+  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  response.headers.set('Access-Control-Allow-Credentials', 'true');
+  return response;
+}
 
-  const token = authHeader.split(' ')[1];
-  if (!token) {
-    console.log('Token is empty');
-    return false;
-  }
-
-  try {
-    // Untuk implementasi sederhana, kita anggap token valid jika tidak kosong
-    // Pada aplikasi produksi, Anda harus melakukan verifikasi token yang tepat
-    console.log('Token received:', token);
-    return true;
-  } catch (error) {
-    console.error('Error verifying token:', error);
-    return false;
-  }
+export async function OPTIONS() {
+  return addCorsHeaders(NextResponse.json({}, { status: 200 }));
 }
 
 export async function GET(request: NextRequest) {
   console.log('GET /api/admin/reports request received');
   
-  // Log semua headers untuk debugging
-  const headers: { [key: string]: string } = {};
-  request.headers.forEach((value, key) => {
-    headers[key] = value;
-  });
-  console.log('Request headers:', headers);
+  // Perbaiki request dengan menambahkan auth header dari cookie jika perlu
+  request = injectAuthHeaderFromCookie(request);
+  
+  // Log headers dan cookies
+  logRequestHeaders(request);
+  console.log('Route: Semua cookies yang diterima:', Object.fromEntries(request.cookies.getAll().map(c => [c.name, c.value])));
+  
+  // Cek token dari parameter URL
+  const url = new URL(request.url);
+  const queryToken = url.searchParams.get('token');
+  if (queryToken) {
+    console.log('Token ditemukan di parameter URL:', queryToken.substring(0, 3) + '...');
+    
+    // Tambahkan token ke header jika dari query parameter
+    const newHeaders = new Headers(request.headers);
+    newHeaders.set('Authorization', `Bearer ${queryToken}`);
+    
+    // Buat request baru dengan header yang diperbarui
+    request = new NextRequest(request.url, {
+      method: request.method,
+      headers: newHeaders,
+      body: request.body
+    });
+  } else {
+    console.log('Token tidak ditemukan di parameter URL');
+  }
+  
+  // CORS headers
+  const origin = request.headers.get('origin') || '';
+  const headers = {
+    'Access-Control-Allow-Origin': origin || '*',
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cache-Control'
+  };
+  
+  // Untuk OPTIONS request (preflight)
+  if (request.method === 'OPTIONS') {
+    return new NextResponse(null, { status: 204, headers });
+  }
   
   // Periksa autentikasi
   if (!isAuthenticated(request)) {
     console.log('Authentication failed');
     return NextResponse.json(
       { error: 'Unauthorized' }, 
-      { status: 401 }
+      { status: 401, headers }
     );
   }
 
   console.log('Authentication successful');
-
+  
   try {
     const type = request.nextUrl.searchParams.get('type');
-    
     const sql = neon(process.env.DATABASE_URL!);
     
-    // Cek apakah tabel reports ada
-    try {
-      const tablesResult = await sql.unsafe(`
-        SELECT EXISTS (
-          SELECT FROM information_schema.tables 
-          WHERE table_schema = 'public' 
-          AND table_name = 'reports'
-        ) as exists
-      `);
-      
-      const reportsTableExists = (tablesResult as unknown as any[])?.[0]?.exists;
-      
-      if (!reportsTableExists) {
-        // Dummy data untuk demo
-        const dummyReports = [
-          {
-            id: 1,
-            title: 'Laporan Pengiriman Bulanan',
-            type: 'shipment',
-            format: 'pdf',
-            data: JSON.stringify({totalShipments: 240, totalRevenue: 48500000}),
-            last_generated: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-            created_by: 1
-          },
-          {
-            id: 2,
-            title: 'Laporan Keuangan Bulanan',
-            type: 'finance',
-            format: 'excel',
-            data: JSON.stringify({revenue: 48500000, expenses: 32400000, profit: 16100000}),
-            last_generated: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
-            created_by: 1
-          },
-          {
-            id: 3,
-            title: 'Laporan Performa Kurir',
-            type: 'performance',
-            format: 'pdf',
-            data: JSON.stringify({totalCouriers: 15, avgRating: 4.7, totalDeliveries: 450}),
-            last_generated: new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString(),
-            created_by: 1
-          },
-          {
-            id: 4,
-            title: 'Laporan Keluhan Pelanggan',
-            type: 'complaint',
-            format: 'pdf',
-            data: JSON.stringify({totalComplaints: 12, resolvedComplaints: 10, pendingComplaints: 2}),
-            last_generated: new Date(Date.now() - 96 * 60 * 60 * 1000).toISOString(),
-            created_by: 1
-          },
-          {
-            id: 5,
-            title: 'Laporan Pengiriman Mingguan',
-            type: 'shipment',
-            format: 'excel',
-            data: JSON.stringify({totalShipments: 75, totalRevenue: 15250000}),
-            last_generated: new Date(Date.now() - 120 * 60 * 60 * 1000).toISOString(),
-            created_by: 1
-          }
-        ];
-        
-        // Filter berdasarkan tipe jika diperlukan
-        const filteredReports = type && type !== 'all'
-          ? dummyReports.filter(report => report.type === type)
-          : dummyReports;
-        
-        return NextResponse.json({
-          data: filteredReports,
-          total: filteredReports.length,
-          note: 'Using dummy data because reports table does not exist'
-        });
-      }
-      
-      // Jika tabel ada, ambil data dari database
-      let reportsQuery = `
-        SELECT * FROM reports
-      `;
-      
-      if (type && type !== 'all') {
-        reportsQuery += ` WHERE type = '${type}'`;
-      }
-      
-      reportsQuery += ` ORDER BY last_generated DESC`;
-      
-      const reports = await sql.unsafe(reportsQuery);
-      
-      return NextResponse.json({
-        data: reports || [],
-        total: (reports as unknown as any[])?.length || 0
-      });
-    } catch (error) {
-      throw error;
+    // Saat ini hanya implementasi dummy
+    // TODO: Implementasi sesuai kebutuhan bisnis
+    
+    // Mendapatkan ringkasan jumlah shipment berdasarkan status
+    const shipmentsSummary = await sql`
+      SELECT 
+        status, 
+        COUNT(*) as count
+      FROM shipments
+      GROUP BY status
+      ORDER BY count DESC
+    `;
+    
+    // Mendapatkan trend pengiriman weekly
+    const weeklyTrend = await sql`
+      SELECT 
+        date_trunc('week', created_at) as week,
+        COUNT(*) as shipment_count
+      FROM shipments
+      WHERE created_at > NOW() - INTERVAL '3 months'
+      GROUP BY week
+      ORDER BY week
+    `;
+    
+    // Format data untuk response
+    const formattedShipmentsSummary = shipmentsSummary.map(item => ({
+      status: item.status,
+      count: Number(item.count)
+    }));
+    
+    const formattedWeeklyTrend = weeklyTrend.map(item => ({
+      week: item.week,
+      shipmentCount: Number(item.shipment_count)
+    }));
+    
+    // Response sesuai dengan type yang diminta
+    if (type === 'status') {
+      return NextResponse.json(
+        { data: formattedShipmentsSummary }, 
+        { status: 200, headers }
+      );
+    } else if (type === 'trend') {
+      return NextResponse.json(
+        { data: formattedWeeklyTrend }, 
+        { status: 200, headers }
+      );
+    } else {
+      // Return semua data jika type tidak spesifik
+      return NextResponse.json(
+        { 
+          statusSummary: formattedShipmentsSummary,
+          weeklyTrend: formattedWeeklyTrend
+        }, 
+        { status: 200, headers }
+      );
     }
   } catch (error) {
     console.error('Error fetching reports:', error);
-    
-    // Jika terjadi error, berikan data dummy
-    const dummyReports = [
-      {
-        id: 1,
-        title: 'Laporan Pengiriman Bulanan',
-        type: 'shipment',
-        format: 'pdf',
-        data: JSON.stringify({totalShipments: 240, totalRevenue: 48500000}),
-        last_generated: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        created_by: 1
-      },
-      {
-        id: 2,
-        title: 'Laporan Keuangan Bulanan',
-        type: 'finance',
-        format: 'excel',
-        data: JSON.stringify({revenue: 48500000, expenses: 32400000, profit: 16100000}),
-        last_generated: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
-        created_by: 1
-      },
-      {
-        id: 3,
-        title: 'Laporan Performa Kurir',
-        type: 'performance',
-        format: 'pdf',
-        data: JSON.stringify({totalCouriers: 15, avgRating: 4.7, totalDeliveries: 450}),
-        last_generated: new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString(),
-        created_by: 1
-      }
-    ];
-    
-    // Filter berdasarkan tipe jika diperlukan
-    const filteredReports = type && type !== 'all'
-      ? dummyReports.filter(report => report.type === type)
-      : dummyReports;
-    
-    return NextResponse.json({
-      data: filteredReports,
-      total: filteredReports.length,
-      error: 'Using fallback dummy data due to error',
-      details: error instanceof Error ? error.message : String(error)
-    });
+    return NextResponse.json(
+      { error: 'Failed to fetch reports' }, 
+      { status: 500, headers }
+    );
   }
 } 

@@ -1,136 +1,136 @@
-import { NextResponse, NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
+import { injectAuthHeaderFromCookie, isAuthenticated, logRequestHeaders } from '@/lib/authHelpers';
 
 export const dynamic = 'force-dynamic';
-
-// Helper function untuk memeriksa autentikasi
-function isAuthenticated(request: NextRequest) {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    console.log('No valid Authorization header found');
-    return false;
-  }
-
-  const token = authHeader.split(' ')[1];
-  if (!token) {
-    console.log('Token is empty');
-    return false;
-  }
-
-  try {
-    // Untuk implementasi sederhana, kita anggap token valid jika tidak kosong
-    // Pada aplikasi produksi, Anda harus melakukan verifikasi token yang tepat
-    console.log('Token received:', token);
-    return true;
-  } catch (error) {
-    console.error('Error verifying token:', error);
-    return false;
-  }
-}
 
 export async function GET(request: NextRequest) {
   console.log('GET /api/admin/locations request received');
   
-  // Log semua headers untuk debugging
-  const headers: { [key: string]: string } = {};
-  request.headers.forEach((value, key) => {
-    headers[key] = value;
-  });
-  console.log('Request headers:', headers);
+  // Perbaiki request dengan menambahkan auth header dari cookie jika perlu
+  request = injectAuthHeaderFromCookie(request);
+  
+  // Log headers dan cookies
+  logRequestHeaders(request);
+  console.log('Route: Semua cookies yang diterima:', Object.fromEntries(request.cookies.getAll().map(c => [c.name, c.value])));
+  
+  // Cek token dari parameter URL
+  const url = new URL(request.url);
+  const queryToken = url.searchParams.get('token');
+  if (queryToken) {
+    console.log('Token ditemukan di parameter URL:', queryToken.substring(0, 3) + '...');
+    
+    // Tambahkan token ke header jika dari query parameter
+    const newHeaders = new Headers(request.headers);
+    newHeaders.set('Authorization', `Bearer ${queryToken}`);
+    
+    // Buat request baru dengan header yang diperbarui
+    request = new NextRequest(request.url, {
+      method: request.method,
+      headers: newHeaders,
+      body: request.body
+    });
+  } else {
+    console.log('Token tidak ditemukan di parameter URL');
+  }
+  
+  // CORS headers
+  const origin = request.headers.get('origin') || '';
+  const headers = {
+    'Access-Control-Allow-Origin': origin || '*',
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cache-Control'
+  };
+  
+  // Untuk OPTIONS request (preflight)
+  if (request.method === 'OPTIONS') {
+    return new NextResponse(null, { status: 204, headers });
+  }
   
   // Periksa autentikasi
   if (!isAuthenticated(request)) {
     console.log('Authentication failed');
     return NextResponse.json(
       { error: 'Unauthorized' }, 
-      { status: 401 }
+      { status: 401, headers }
     );
   }
 
   console.log('Authentication successful');
-
+  
   try {
     const type = request.nextUrl.searchParams.get('type');
-    
     const sql = neon(process.env.DATABASE_URL!);
     
     // Cek apakah tabel locations ada
-    try {
-      const tablesResult = await sql.unsafe(`
-        SELECT EXISTS (
-          SELECT FROM information_schema.tables 
-          WHERE table_schema = 'public' 
-          AND table_name = 'locations'
-        ) as exists
-      `);
-      
-      const locationsTableExists = (tablesResult as unknown as any[])?.[0]?.exists;
-      
-      if (!locationsTableExists) {
-        // Dummy data untuk demo
-        const dummyLocations = [
-          { id: 1, name: 'Kantor Pusat Jakarta', address: 'Jl. Sudirman No. 123, Jakarta', province: 'DKI Jakarta', city: 'Jakarta Pusat', type: 'hub' },
-          { id: 2, name: 'Cabang Surabaya', address: 'Jl. Pemuda No. 45, Surabaya', province: 'Jawa Timur', city: 'Surabaya', type: 'branch' },
-          { id: 3, name: 'Cabang Bandung', address: 'Jl. Asia Afrika No. 78, Bandung', province: 'Jawa Barat', city: 'Bandung', type: 'branch' },
-          { id: 4, name: 'Agen Semarang', address: 'Jl. Pandanaran No. 33, Semarang', province: 'Jawa Tengah', city: 'Semarang', type: 'agent' },
-          { id: 5, name: 'Agen Yogyakarta', address: 'Jl. Malioboro No. 99, Yogyakarta', province: 'DIY', city: 'Yogyakarta', type: 'agent' },
-          { id: 6, name: 'Cabang Makassar', address: 'Jl. Urip Sumoharjo No. 55, Makassar', province: 'Sulawesi Selatan', city: 'Makassar', type: 'branch' },
-          { id: 7, name: 'Agen Denpasar', address: 'Jl. Diponegoro No. 22, Denpasar', province: 'Bali', city: 'Denpasar', type: 'agent' },
-          { id: 8, name: 'Cabang Medan', address: 'Jl. Gatot Subroto No. 77, Medan', province: 'Sumatera Utara', city: 'Medan', type: 'branch' },
-          { id: 9, name: 'Agen Palembang', address: 'Jl. Jendral Sudirman No. 101, Palembang', province: 'Sumatera Selatan', city: 'Palembang', type: 'agent' },
-          { id: 10, name: 'Cabang Balikpapan', address: 'Jl. Jendral Ahmad Yani No. 12, Balikpapan', province: 'Kalimantan Timur', city: 'Balikpapan', type: 'branch' }
-        ];
+    const tablesResult = await sql`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'locations'
+      ) as exists
+    `;
+    
+    const locationsExist = tablesResult[0]?.exists;
+    
+    // Jika tabel belum ada, berikan data dummy untuk development
+    if (!locationsExist) {
+      const dummyLocations = [
+        { id: 1, name: 'Jakarta Pusat', address: 'Jl. Merdeka No. 1, Jakarta Pusat', type: 'hub', capacity: 100, status: 'active' },
+        { id: 2, name: 'Bandung', address: 'Jl. Asia Afrika No. 15, Bandung', type: 'branch', capacity: 50, status: 'active' },
+        { id: 3, name: 'Surabaya', address: 'Jl. Panglima Sudirman No. 10, Surabaya', type: 'hub', capacity: 80, status: 'active' },
+        { id: 4, name: 'Medan', address: 'Jl. Diponegoro No. 5, Medan', type: 'branch', capacity: 40, status: 'active' },
+        { id: 5, name: 'Makassar', address: 'Jl. Urip Sumoharjo No. 7, Makassar', type: 'branch', capacity: 30, status: 'inactive' },
+      ];
+
+      const filteredLocations = type 
+        ? dummyLocations.filter(loc => loc.type === type) 
+        : dummyLocations;
         
-        // Filter berdasarkan tipe jika diperlukan
-        const filteredLocations = type ? dummyLocations.filter(loc => loc.type === type) : dummyLocations;
-        
-        return NextResponse.json({
+      return NextResponse.json(
+        { 
           locations: filteredLocations,
           total: filteredLocations.length,
-          note: 'Using dummy data because locations table does not exist'
-        });
-      }
-      
-      // Jika tabel ada, ambil data dari database
-      let locationsQuery = `
-        SELECT * FROM locations
-      `;
-      
-      if (type) {
-        locationsQuery += ` WHERE type = '${type}'`;
-      }
-      
-      locationsQuery += ` ORDER BY province, city, name`;
-      
-      const locations = await sql.unsafe(locationsQuery);
-      
-      return NextResponse.json({
-        locations: locations || [],
-        total: (locations as unknown as any[])?.length || 0
-      });
-    } catch (error) {
-      throw error;
+          note: 'Using dummy data as locations table does not exist'
+        }, 
+        { status: 200, headers }
+      );
     }
+    
+    // Query database jika tabel ada
+    let query = sql`SELECT * FROM locations`;
+    
+    if (type) {
+      query = sql`SELECT * FROM locations WHERE type = ${type}`;
+    }
+    
+    const locations = await query;
+    
+    return NextResponse.json(
+      { 
+        locations, 
+        total: locations.length 
+      }, 
+      { status: 200, headers }
+    );
   } catch (error) {
     console.error('Error fetching locations:', error);
     
     // Jika terjadi error, berikan data dummy
     const dummyLocations = [
-      { id: 1, name: 'Kantor Pusat Jakarta', address: 'Jl. Sudirman No. 123, Jakarta', province: 'DKI Jakarta', city: 'Jakarta Pusat', type: 'hub' },
-      { id: 2, name: 'Cabang Surabaya', address: 'Jl. Pemuda No. 45, Surabaya', province: 'Jawa Timur', city: 'Surabaya', type: 'branch' },
-      { id: 3, name: 'Cabang Bandung', address: 'Jl. Asia Afrika No. 78, Bandung', province: 'Jawa Barat', city: 'Bandung', type: 'branch' },
-      { id: 4, name: 'Agen Semarang', address: 'Jl. Pandanaran No. 33, Semarang', province: 'Jawa Tengah', city: 'Semarang', type: 'agent' },
-      { id: 5, name: 'Agen Yogyakarta', address: 'Jl. Malioboro No. 99, Yogyakarta', province: 'DIY', city: 'Yogyakarta', type: 'agent' }
+      { id: 1, name: 'Jakarta Pusat', address: 'Jl. Merdeka No. 1, Jakarta Pusat', type: 'hub', capacity: 100, status: 'active' },
+      { id: 2, name: 'Bandung', address: 'Jl. Asia Afrika No. 15, Bandung', type: 'branch', capacity: 50, status: 'active' },
+      { id: 3, name: 'Surabaya', address: 'Jl. Panglima Sudirman No. 10, Surabaya', type: 'hub', capacity: 80, status: 'active' },
     ];
     
-    // Filter berdasarkan tipe jika diperlukan
-    const filteredLocations = type ? dummyLocations.filter(loc => loc.type === type) : dummyLocations;
-    
-    return NextResponse.json({
-      locations: filteredLocations,
-      total: filteredLocations.length,
-      error: 'Using fallback dummy data due to error',
-      details: error instanceof Error ? error.message : String(error)
-    });
+    return NextResponse.json(
+      { 
+        locations: dummyLocations, 
+        total: dummyLocations.length,
+        error: 'Error fetching data, using fallback dummy data'
+      }, 
+      { status: 200, headers }
+    );
   }
 } 

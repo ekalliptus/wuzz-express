@@ -93,6 +93,35 @@ export default function ShipmentsPage() {
     }
   };
 
+  // Format tanggal
+  const formatDate = (dateString: string) => {
+    // Periksa apakah dateString valid
+    if (!dateString) {
+      console.error('formatDate: dateString is empty or undefined', dateString);
+      return 'Tanggal tidak tersedia';
+    }
+
+    try {
+      const options: Intl.DateTimeFormatOptions = {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      };
+      const date = new Date(dateString);
+      
+      // Periksa apakah tanggal valid
+      if (isNaN(date.getTime())) {
+        console.error('formatDate: Invalid date from string:', dateString);
+        return 'Format tanggal tidak valid';
+      }
+      
+      return date.toLocaleDateString('id-ID', options);
+    } catch (error) {
+      console.error('formatDate: Error formatting date', error, dateString);
+      return 'Error format tanggal';
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -160,17 +189,17 @@ export default function ShipmentsPage() {
                     <tr key={shipment.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
                         <Link href={`/staff/shipments`}>
-                          {shipment.receipt_number}
+                          {shipment.receipt_number || shipment.receiptNumber || 'No. Resi tidak tersedia'}
                         </Link>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {shipment.sender_name}
+                        {shipment.sender_name || shipment.sender?.name || 'Data pengirim tidak tersedia'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {shipment.recipient_name}
+                        {shipment.recipient_name || shipment.recipient?.name || 'Data penerima tidak tersedia'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {shipment.origin_city} - {shipment.destination_city}
+                        {shipment.origin_city || 'Asal tidak tersedia'} - {shipment.destination_city || 'Tujuan tidak tersedia'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(shipment.status)}`}>
@@ -178,7 +207,7 @@ export default function ShipmentsPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(shipment.created_at).toLocaleDateString('id-ID')}
+                        {formatDate(shipment.created_at || shipment.createdAt)}
                       </td>
                     </tr>
                   ))}

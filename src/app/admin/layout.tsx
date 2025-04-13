@@ -17,6 +17,39 @@ export default function AdminAreaLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const { checkAuthStatus, isAuthenticated, loading } = useAuthContext();
+  const router = useRouter();
+
+  // Pastikan status autentikasi selalu diverifikasi saat layout dirender
+  useEffect(() => {
+    const verifyAuth = async () => {
+      const isAuth = await checkAuthStatus();
+      
+      if (!isAuth) {
+        console.log('Anda tidak memiliki otorisasi, mengarahkan ke halaman login');
+        router.push('/auth/login');
+      } else {
+        console.log('Status autentikasi berhasil diverifikasi');
+      }
+    };
+    
+    verifyAuth();
+  }, [checkAuthStatus, router]);
+
+  // Tampilkan loading spinner jika sedang memeriksa status auth
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
+  }
+  
+  // Jika belum terautentikasi dan belum loading, berarti sedang dalam proses redirect
+  if (!isAuthenticated && !loading) {
+    return null;
+  }
+
   return (
     <BaseLayout showNavbar={false} sidebar={<AdminSidebar />}>
       <AdminLayoutWrapper>

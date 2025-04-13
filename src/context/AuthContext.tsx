@@ -3,6 +3,7 @@
 import React, { createContext, useContext, ReactNode, useState, useCallback, useEffect } from 'react';
 import { User } from '@/types';
 import { authenticateUser } from '@/app/actions';
+import Cookies from 'js-cookie';
 
 // Tipe data untuk context
 interface AuthContextType {
@@ -27,6 +28,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Inisialisasi state dari local storage saat client mount
   useEffect(() => {
+    // Pastikan window.tokenId tersedia secara global
+    if (typeof window !== 'undefined') {
+      (window as any).tokenId = '';
+    }
+
     const storedUser = localStorage.getItem('wuzz_user');
     if (storedUser) {
       try {
@@ -35,49 +41,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (parsedUser && parsedUser.id && parsedUser.role) {
           setUser(parsedUser);
           setIsAuthenticated(true);
+          
+          // Set token di window object
+          const userId = String(parsedUser.id);
+          if (typeof window !== 'undefined') {
+            (window as any).tokenId = userId;
+            console.log('Token tersedia di window.tokenId:', userId);
+          }
+          
+          // Set cookie
+          Cookies.set('auth_token', userId, { 
+            expires: 7, 
+            path: '/',
+            sameSite: 'lax',
+            secure: process.env.NODE_ENV === 'production'
+          });
+          
+          console.log('User diinisialisasi dari localStorage:', parsedUser.role);
         } else {
           console.error('Stored user data invalid:', parsedUser);
-          localStorage.removeItem('wuzz_user'); // Hapus data tidak valid
+          localStorage.removeItem('wuzz_user');
+          if (typeof window !== 'undefined') {
+            (window as any).tokenId = '';
+          }
+          Cookies.remove('auth_token');
         }
       } catch (err) {
         console.error('Error parsing stored user data:', err);
-        localStorage.removeItem('wuzz_user'); // Hapus data corrupt
+        localStorage.removeItem('wuzz_user');
+        if (typeof window !== 'undefined') {
+          (window as any).tokenId = '';
+        }
+        Cookies.remove('auth_token');
+      }
+    } else {
+      // Cek apakah ada token di cookies
+      const cookieToken = Cookies.get('auth_token');
+      if (cookieToken) {
+        if (typeof window !== 'undefined') {
+          (window as any).tokenId = cookieToken;
+          console.log('Token tersedia di window.tokenId dari cookie:', cookieToken);
+        }
       }
     }
     setLoading(false);
-  }, []);
-
-  /**
-   * Memeriksa status autentikasi pengguna
-   */
-  const checkAuthStatus = useCallback(async (): Promise<boolean> => {
-    const storedUser = localStorage.getItem('wuzz_user');
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        // Validasi user memiliki properti yang dibutuhkan
-        if (parsedUser && parsedUser.id && parsedUser.role) {
-          setUser(parsedUser);
-          setIsAuthenticated(true);
-          console.log('User authenticated with role:', parsedUser.role);
-          return true;
-        } else {
-          console.error('Invalid user data in localStorage:', parsedUser);
-          setUser(null);
-          setIsAuthenticated(false);
-          localStorage.removeItem('wuzz_user');
-          return false;
-        }
-      } catch (err) {
-        console.error('Error parsing stored user data:', err);
-        setUser(null);
-        setIsAuthenticated(false);
-        localStorage.removeItem('wuzz_user');
-        return false;
-      }
-    }
-    setIsAuthenticated(false);
-    return false;
   }, []);
 
   /**
@@ -103,8 +110,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         setUser(result.user as User);
         setIsAuthenticated(true);
+        
+        // Simpan user di localStorage
         localStorage.setItem('wuzz_user', JSON.stringify(result.user));
+        
+        // Set token ID di window object - PENTING
+        const userId = String(result.user.id);
+        if (typeof window !== 'undefined') {
+          (window as any).tokenId = userId;
+          console.log('Token tersedia di window.tokenId:', userId);
+        }
+        
+        // Set cookie
+        Cookies.set('auth_token', userId, { 
+          expires: 7, 
+          path: '/',
+          sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production'
+        });
+        
         console.log('Login berhasil dengan role:', result.role);
+        
         return { success: true, role: result.role };
       } else {
         setError(result.message || 'Gagal login');
@@ -120,12 +146,85 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   /**
+   * Memeriksa status autentikasi pengguna
+   */
+  const checkAuthStatus = useCallback(async (): Promise<boolean> => {
+    const storedUser = localStorage.getItem('wuzz_user');
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        // Validasi user memiliki properti yang dibutuhkan
+        if (parsedUser && parsedUser.id && parsedUser.role) {
+          setUser(parsedUser);
+          setIsAuthenticated(true);
+          
+          // Set token di window object
+          const userId = String(parsedUser.id);
+          if (typeof window !== 'undefined') {
+            (window as any).tokenId = userId;
+          }
+          
+          return true;
+        } else {
+          setUser(null);
+          setIsAuthenticated(false);
+          localStorage.removeItem('wuzz_user');
+          if (typeof window !== 'undefined') {
+            (window as any).tokenId = '';
+          }
+          Cookies.remove('auth_token');
+          return false;
+        }
+      } catch (err) {
+        console.error('Error parsing stored user data:', err);
+        setUser(null);
+        setIsAuthenticated(false);
+        localStorage.removeItem('wuzz_user');
+        if (typeof window !== 'undefined') {
+          (window as any).tokenId = '';
+        }
+        Cookies.remove('auth_token');
+        return false;
+      }
+    }
+    
+    // Cek token cookie sebagai fallback
+    const cookieToken = Cookies.get('auth_token');
+    if (cookieToken) {
+      setIsAuthenticated(true);
+      if (typeof window !== 'undefined') {
+        (window as any).tokenId = cookieToken;
+      }
+      return true;
+    }
+    
+    setIsAuthenticated(false);
+    return false;
+  }, []);
+
+  /**
    * Logout user dan hapus data sesi
    */
   const logout = useCallback(() => {
     setUser(null);
     setIsAuthenticated(false);
+    
+    // Hapus data dari localStorage
     localStorage.removeItem('wuzz_user');
+    
+    // Reset token ID di window
+    if (typeof window !== 'undefined') {
+      (window as any).tokenId = '';
+    }
+    
+    // Hapus cookie
+    Cookies.remove('auth_token', {
+      path: '/',
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production'
+    });
+    
+    console.log('Logout berhasil, token dan data dihapus');
   }, []);
 
   const value = {

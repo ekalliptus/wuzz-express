@@ -1,49 +1,66 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { neon } from '@neondatabase/serverless';
+import { isAuthenticated, logRequestHeaders, injectAuthHeaderFromCookie } from '@/lib/authHelpers';
 
 export const dynamic = 'force-dynamic';
-
-// Helper function untuk memeriksa autentikasi
-function isAuthenticated(request: NextRequest) {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    console.log('No valid Authorization header found');
-    return false;
-  }
-
-  const token = authHeader.split(' ')[1];
-  if (!token) {
-    console.log('Token is empty');
-    return false;
-  }
-
-  try {
-    // Untuk implementasi sederhana, kita anggap token valid jika tidak kosong
-    // Pada aplikasi produksi, Anda harus melakukan verifikasi token yang tepat
-    console.log('Token received:', token);
-    return true;
-  } catch (error) {
-    console.error('Error verifying token:', error);
-    return false;
-  }
-}
 
 export async function GET(request: NextRequest) {
   console.log('GET /api/admin/shipments request received');
   
-  // Log semua headers untuk debugging
-  const headers: { [key: string]: string } = {};
-  request.headers.forEach((value, key) => {
-    headers[key] = value;
+  // Perbaiki request dengan menambahkan auth header dari cookie jika perlu
+  request = injectAuthHeaderFromCookie(request);
+  
+  // Debugging: print semua cookies
+  console.log('Route: Semua cookies yang diterima:');
+  const allCookies = {};
+  request.cookies.getAll().forEach(cookie => {
+    allCookies[cookie.name] = cookie.value;
   });
-  console.log('Request headers:', headers);
+  console.log(allCookies);
+  
+  // Cek token dari parameter URL
+  const url = new URL(request.url);
+  const queryToken = url.searchParams.get('token');
+  if (queryToken) {
+    console.log('Token ditemukan di parameter URL:', queryToken.substring(0, 3) + '...');
+    
+    // Tambahkan token ke header jika dari query parameter
+    const newHeaders = new Headers(request.headers);
+    newHeaders.set('Authorization', `Bearer ${queryToken}`);
+    
+    // Buat request baru dengan header yang diperbarui
+    request = new NextRequest(request.url, {
+      method: request.method,
+      headers: newHeaders,
+      body: request.body
+    });
+  } else {
+    console.log('Token tidak ditemukan di parameter URL');
+  }
+  
+  // CORS headers
+  const origin = request.headers.get('origin') || '';
+  const headers = {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+  };
+  
+  // Untuk OPTIONS request (preflight)
+  if (request.method === 'OPTIONS') {
+    return new NextResponse(null, { status: 204, headers });
+  }
+  
+  // Log semua headers untuk debugging
+  logRequestHeaders(request);
   
   // Periksa autentikasi
   if (!isAuthenticated(request)) {
     console.log('Authentication failed');
     return NextResponse.json(
       { error: 'Unauthorized' }, 
-      { status: 401 }
+      { status: 401, headers }
     );
   }
 

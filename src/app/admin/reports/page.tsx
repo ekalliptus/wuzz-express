@@ -42,7 +42,45 @@ export default function ReportsPage() {
         return;
       }
       
-      setReports(result.data);
+      // Handle berbagai format data berdasarkan API atau direct DB access
+      if (result.data) {
+        // Format dari API response
+        setReports(result.data);
+      } else if (result.statusSummary || result.weeklyTrend) {
+        // Format dari direct DB access - ubah ke format yang diharapkan oleh UI
+        const formattedReports = [];
+        
+        if (activeTab === 'status' || activeTab === 'all') {
+          formattedReports.push({
+            id: 'status-report',
+            title: 'Laporan Status Pengiriman',
+            description: 'Ringkasan jumlah pengiriman berdasarkan status',
+            type: 'status',
+            format: 'pdf',
+            period: 'Bulan Ini',
+            last_generated: new Date().toISOString(),
+            data: result.statusSummary
+          });
+        }
+        
+        if (activeTab === 'shipping' || activeTab === 'all') {
+          formattedReports.push({
+            id: 'shipping-trend',
+            title: 'Tren Pengiriman Mingguan',
+            description: 'Analisis tren pengiriman dalam 3 bulan terakhir',
+            type: 'shipping',
+            format: 'pdf',
+            period: '3 Bulan Terakhir',
+            last_generated: new Date().toISOString(),
+            data: result.weeklyTrend
+          });
+        }
+        
+        setReports(formattedReports);
+      } else {
+        // Tidak ada data yang didukung
+        setReports([]);
+      }
     } catch (err: any) {
       console.error('Error fetching reports:', err);
       setError(err.message || 'Gagal memuat data laporan. Silakan coba lagi nanti.');
@@ -224,7 +262,7 @@ export default function ReportsPage() {
               </div>
             </div>
           ))
-        ) : reports.length > 0 ? (
+        ) : reports && reports.length > 0 ? (
           reports.map((report) => (
             <div key={report.id} className="bg-white p-5 rounded-lg border shadow-sm hover:shadow-md transition-shadow">
               <div className="mb-4">
@@ -248,7 +286,10 @@ export default function ReportsPage() {
                   Terakhir diperbarui: {formatDate(report.last_generated)}
                 </span>
                 
-                <button className="inline-flex items-center py-1.5 px-3 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors">
+                <button
+                  onClick={() => window.alert(`Unduh laporan ${report.title}`)}
+                  className="text-sm flex items-center text-blue-600 hover:text-blue-700 font-medium"
+                >
                   <ArrowDownTrayIcon className="h-4 w-4 mr-1" />
                   Unduh
                 </button>
@@ -256,12 +297,12 @@ export default function ReportsPage() {
             </div>
           ))
         ) : (
-          <div className="col-span-full bg-white p-8 rounded-lg border text-center">
-            <div className="inline-block p-3 bg-blue-50 rounded-full mb-4">
-              <DocumentTextIcon className="h-8 w-8 text-blue-500" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">Tidak ada laporan tersedia</h3>
-            <p className="text-gray-500 mb-4">Tidak ada laporan yang tersedia untuk kategori ini</p>
+          <div className="col-span-3 bg-gray-50 p-8 rounded-lg border border-gray-200 text-center">
+            <DocumentTextIcon className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">Tidak ada laporan</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Tidak ada laporan yang tersedia untuk kategori ini saat ini.
+            </p>
           </div>
         )}
       </div>

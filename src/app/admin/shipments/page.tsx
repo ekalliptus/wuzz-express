@@ -26,14 +26,33 @@ const STATUS_CONFIG = {
 
 // Format tanggal
 const formatDate = (dateString: string) => {
-  const options: Intl.DateTimeFormatOptions = {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  };
-  return new Date(dateString).toLocaleDateString('id-ID', options);
+  // Periksa apakah dateString valid
+  if (!dateString) {
+    console.error('formatDate: dateString is empty or undefined', dateString);
+    return 'Tanggal tidak tersedia';
+  }
+
+  try {
+    const options: Intl.DateTimeFormatOptions = {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    };
+    const date = new Date(dateString);
+    
+    // Periksa apakah tanggal valid
+    if (isNaN(date.getTime())) {
+      console.error('formatDate: Invalid date from string:', dateString);
+      return 'Format tanggal tidak valid';
+    }
+    
+    return date.toLocaleDateString('id-ID', options);
+  } catch (error) {
+    console.error('formatDate: Error formatting date', error, dateString);
+    return 'Error format tanggal';
+  }
 };
 
 function classNames(...classes: string[]) {
@@ -56,10 +75,20 @@ export default function ShipmentsPage() {
   const fetchShipments = useCallback(async () => {
     try {
       setLoading(true);
+      console.log("Fetching shipments data...");
       const result = await getShipments(page, 10, statusFilter || undefined);
+      console.log("Shipments data received:", result);
+      
+      if (result.data && result.data.length > 0) {
+        console.log("First shipment sample:", JSON.stringify(result.data[0], null, 2));
+      } else {
+        console.log("No shipment data found");
+      }
+      
       setShipments(result.data);
       setTotalPages(Math.ceil(result.total / result.limit));
     } catch (err: any) {
+      console.error("Error fetching shipments:", err);
       setError(err.message || 'Gagal memuat data pengiriman');
     } finally {
       setLoading(false);
@@ -228,13 +257,13 @@ export default function ShipmentsPage() {
                         href={`/admin/shipments/detail/${shipment.id}`}
                         className="hover:text-blue-600 hover:underline"
                       >
-                        {shipment.receipt_number}
+                        {shipment.receipt_number || shipment.receiptNumber || 'No. Resi tidak tersedia'}
                       </Link>
                     </td>
-                    <td className="px-4 py-3">{shipment.sender_name}</td>
-                    <td className="px-4 py-3">{shipment.recipient_name}</td>
-                    <td className="px-4 py-3">{shipment.destination_city}</td>
-                    <td className="px-4 py-3">{formatDate(shipment.created_at)}</td>
+                    <td className="px-4 py-3">{shipment.sender_name || shipment.sender?.name || 'Data pengirim tidak tersedia'}</td>
+                    <td className="px-4 py-3">{shipment.recipient_name || shipment.recipient?.name || 'Data penerima tidak tersedia'}</td>
+                    <td className="px-4 py-3">{shipment.destination_city || 'Tujuan tidak tersedia'}</td>
+                    <td className="px-4 py-3">{formatDate(shipment.created_at || shipment.createdAt)}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(shipment.status)}`}>
                         {getStatusText(shipment.status)}
