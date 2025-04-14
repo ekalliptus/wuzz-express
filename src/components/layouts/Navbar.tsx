@@ -19,21 +19,21 @@ import Image from 'next/image';
 
 const services = [
   {
-    name: 'Ekspedisi Antar Kota',
+    name: 'Reguler',
     description: 'Layanan pengiriman barang antar kota dengan harga terjangkau',
-    href: '/layanan/antar-kota',
+    href: '/layanan/reguler',
     icon: TruckIcon,
   },
   {
-    name: 'Ekspedisi Antar Pulau',
+    name: 'Ekonomi',
     description: 'Layanan pengiriman barang antar pulau di seluruh Indonesia',
-    href: '/layanan/antar-pulau',
+    href: '/layanan/ekonomi',
     icon: ShoppingBagIcon,
   },
   {
-    name: 'Ekspedisi Khusus',
+    name: 'Express',
     description: 'Layanan pengiriman khusus untuk barang dengan penanganan spesial',
-    href: '/layanan/khusus',
+    href: '/layanan/express',
     icon: TicketIcon,
   },
 ];
@@ -108,97 +108,47 @@ export default function Navbar() {
           >
             Beranda
           </Link>
-          <Popover className="relative">
-            <Popover.Button
-              className={classNames(
-                pathname.startsWith('/layanan') ? 'text-blue-600' : 'text-gray-700',
-                'flex items-center gap-x-1 text-sm font-medium leading-6 hover:text-blue-600 transition-colors duration-200 outline-none'
-              )}
-            >
-              Layanan
-              <ChevronDownIcon className="h-5 w-5 flex-none text-gray-400" aria-hidden="true" />
-            </Popover.Button>
-
-            <Transition
-              as={Fragment}
-              enter="transition ease-out duration-200"
-              enterFrom="opacity-0 translate-y-1"
-              enterTo="opacity-100 translate-y-0"
-              leave="transition ease-in duration-150"
-              leaveFrom="opacity-100 translate-y-0"
-              leaveTo="opacity-0 translate-y-1"
-            >
-              <Popover.Panel className="absolute -left-8 top-full z-10 mt-3 w-screen max-w-md overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-gray-900/5">
-                <div className="p-4">
-                  {services.map((service) => (
-                    <div
-                      key={service.name}
-                      className="group relative flex items-center gap-x-6 rounded-lg p-4 text-sm leading-6 hover:bg-gray-50 transition-colors duration-150"
-                    >
-                      <div className="flex h-11 w-11 flex-none items-center justify-center rounded-lg bg-blue-50 group-hover:bg-blue-100 transition-colors duration-150">
-                        <service.icon className="h-6 w-6 text-blue-600" aria-hidden="true" />
-                      </div>
-                      <div className="flex-auto">
-                        <Link href={service.href} className="block font-semibold text-gray-900">
-                          {service.name}
-                          <span className="absolute inset-0" />
-                        </Link>
-                        <p className="mt-1 text-gray-600">{service.description}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="bg-gray-50 px-8 py-6">
-                  <div className="flex items-center gap-x-3">
-                    <h3 className="text-sm font-semibold leading-6 text-gray-900">Butuh bantuan?</h3>
-                    <span className="rounded-full bg-blue-600/10 px-3 py-1 text-xs font-semibold leading-5 text-blue-600">24/7</span>
-                  </div>
-                  <p className="mt-2 text-sm leading-6 text-gray-600">
-                    Tim layanan pelanggan kami siap membantu Anda
-                  </p>
-                  <button
-                    type="button"
-                    className="mt-4 flex w-full items-center justify-center gap-x-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-                  >
-                    <PhoneIcon className="h-4 w-4" />
-                    Hubungi Kami
-                  </button>
-                </div>
-              </Popover.Panel>
-            </Transition>
-          </Popover>
+          <Link
+            href="/#layanan"
+            className={classNames(
+              pathname.startsWith('/layanan') ? 'text-blue-600' : 'text-gray-700',
+              'text-sm font-medium leading-6 hover:text-blue-600 transition-colors duration-200 flex items-center'
+            )}
+          >
+            Layanan
+          </Link>
 
           <Link
-            href="/tarif"
+            href="/public/tarif"
             className={classNames(
-              pathname === '/tarif' ? 'text-blue-600' : 'text-gray-700',
+              pathname === '/public/tarif' ? 'text-blue-600' : 'text-gray-700',
               'text-sm font-medium leading-6 hover:text-blue-600 transition-colors duration-200'
             )}
           >
             Cek Tarif
           </Link>
           <Link
-            href="/lacak"
+            href="/public/lacak"
             className={classNames(
-              pathname === '/lacak' ? 'text-blue-600' : 'text-gray-700',
+              pathname === '/public/lacak' ? 'text-blue-600' : 'text-gray-700',
               'text-sm font-medium leading-6 hover:text-blue-600 transition-colors duration-200'
             )}
           >
             Lacak Kiriman
           </Link>
           <Link
-            href="/lokasi"
+            href="/public/lokasi"
             className={classNames(
-              pathname === '/lokasi' ? 'text-blue-600' : 'text-gray-700',
+              pathname === '/public/lokasi' ? 'text-blue-600' : 'text-gray-700',
               'text-sm font-medium leading-6 hover:text-blue-600 transition-colors duration-200'
             )}
           >
             Lokasi
           </Link>
           <Link
-            href="/kontak"
+            href="/public/kontak"
             className={classNames(
-              pathname === '/kontak' ? 'text-blue-600' : 'text-gray-700',
+              pathname === '/public/kontak' ? 'text-blue-600' : 'text-gray-700',
               'text-sm font-medium leading-6 hover:text-blue-600 transition-colors duration-200'
             )}
           >
@@ -258,45 +208,20 @@ export default function Navbar() {
                 >
                   Beranda
                 </Link>
-                <Disclosure as="div" className="-mx-3">
-                  {({ open }) => (
-                    <>
-                      <Disclosure.Button
-                        className={classNames(
-                          pathname.startsWith('/layanan') ? 'text-blue-600 bg-blue-50' : 'text-gray-900',
-                          'flex w-full items-center justify-between rounded-lg py-2 pl-3 pr-3.5 text-base font-medium leading-7 hover:bg-gray-50'
-                        )}
-                      >
-                        Layanan
-                        <ChevronDownIcon
-                          className={classNames(
-                            open ? 'rotate-180' : '',
-                            'h-5 w-5 flex-none'
-                          )}
-                          aria-hidden="true"
-                        />
-                      </Disclosure.Button>
-                      <Disclosure.Panel className="mt-2 space-y-2">
-                        {services.map((service) => (
-                          <Disclosure.Button
-                            key={service.name}
-                            as={Link}
-                            href={service.href}
-                            className="block rounded-lg py-2 pl-6 pr-3 text-sm font-medium leading-7 text-gray-900 hover:bg-gray-50 flex items-center gap-x-3"
-                            onClick={() => setMobileMenuOpen(false)}
-                          >
-                            <service.icon className="h-5 w-5 text-blue-600" />
-                            {service.name}
-                          </Disclosure.Button>
-                        ))}
-                      </Disclosure.Panel>
-                    </>
-                  )}
-                </Disclosure>
                 <Link
-                  href="/tarif"
+                  href="/#layanan"
                   className={classNames(
-                    pathname === '/tarif' ? 'text-blue-600 bg-blue-50' : 'text-gray-900',
+                    pathname.startsWith('/layanan') ? 'text-blue-600 bg-blue-50' : 'text-gray-900',
+                    '-mx-3 flex items-center gap-x-3 rounded-lg px-3 py-2 text-base font-medium leading-7 hover:bg-gray-50'
+                  )}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Layanan
+                </Link>
+                <Link
+                  href="/public/tarif"
+                  className={classNames(
+                    pathname === '/public/tarif' ? 'text-blue-600 bg-blue-50' : 'text-gray-900',
                     '-mx-3 flex items-center gap-x-3 rounded-lg px-3 py-2 text-base font-medium leading-7 hover:bg-gray-50'
                   )}
                   onClick={() => setMobileMenuOpen(false)}
@@ -304,9 +229,9 @@ export default function Navbar() {
                   Cek Tarif
                 </Link>
                 <Link
-                  href="/lacak"
+                  href="/public/lacak"
                   className={classNames(
-                    pathname === '/lacak' ? 'text-blue-600 bg-blue-50' : 'text-gray-900',
+                    pathname === '/public/lacak' ? 'text-blue-600 bg-blue-50' : 'text-gray-900',
                     '-mx-3 flex items-center gap-x-3 rounded-lg px-3 py-2 text-base font-medium leading-7 hover:bg-gray-50'
                   )}
                   onClick={() => setMobileMenuOpen(false)}
@@ -314,9 +239,9 @@ export default function Navbar() {
                   Lacak Kiriman
                 </Link>
                 <Link
-                  href="/lokasi"
+                  href="/public/lokasi"
                   className={classNames(
-                    pathname === '/lokasi' ? 'text-blue-600 bg-blue-50' : 'text-gray-900',
+                    pathname === '/public/lokasi' ? 'text-blue-600 bg-blue-50' : 'text-gray-900',
                     '-mx-3 flex items-center gap-x-3 rounded-lg px-3 py-2 text-base font-medium leading-7 hover:bg-gray-50'
                   )}
                   onClick={() => setMobileMenuOpen(false)}
@@ -324,9 +249,9 @@ export default function Navbar() {
                   Lokasi
                 </Link>
                 <Link
-                  href="/kontak"
+                  href="/public/kontak"
                   className={classNames(
-                    pathname === '/kontak' ? 'text-blue-600 bg-blue-50' : 'text-gray-900',
+                    pathname === '/public/kontak' ? 'text-blue-600 bg-blue-50' : 'text-gray-900',
                     '-mx-3 flex items-center gap-x-3 rounded-lg px-3 py-2 text-base font-medium leading-7 hover:bg-gray-50'
                   )}
                   onClick={() => setMobileMenuOpen(false)}

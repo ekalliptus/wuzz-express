@@ -56,7 +56,7 @@ async function handleTrack(formData: FormData) {
   const trackingNumber = formData.get('tracking-number') as string;
   
   if (trackingNumber) {
-    redirect(`/lacak?tracking=${encodeURIComponent(trackingNumber)}`);
+    redirect(`/public/lacak?tracking=${encodeURIComponent(trackingNumber)}`);
   }
 }
 
@@ -84,13 +84,13 @@ export default function Home() {
           </p>
           <div className="mt-10 flex flex-col space-y-4 sm:flex-row sm:space-x-4 sm:space-y-0">
             <Link
-              href="/lacak"
+              href="/public/lacak"
               className="flex items-center justify-center rounded-md border border-transparent bg-white px-6 py-3 text-base font-medium text-blue-600 shadow-md hover:bg-blue-50"
             >
               Lacak Kiriman
             </Link>
             <Link
-              href="/tarif"
+              href="/public/tarif"
               className="flex items-center justify-center rounded-md border border-transparent bg-blue-800 px-6 py-3 text-base font-medium text-white hover:bg-blue-700"
             >
               Cek Tarif
@@ -164,7 +164,7 @@ export default function Home() {
       </div>
 
       {/* Services Section */}
-      <div className="bg-blue-50 py-24 sm:py-32">
+      <div id="layanan" className="bg-blue-50 py-24 sm:py-32">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="mx-auto max-w-2xl lg:text-center">
             <h2 className="text-base font-semibold leading-7 text-blue-600">Layanan Kami</h2>
@@ -177,39 +177,39 @@ export default function Home() {
           </div>
           <div className="mx-auto mt-16 grid max-w-2xl grid-cols-1 gap-8 sm:mt-20 lg:mx-0 lg:max-w-none lg:grid-cols-3">
             <div className="flex flex-col rounded-xl bg-white p-8 shadow-md ring-1 ring-gray-200">
-              <h3 className="text-xl font-semibold text-gray-900">Ekspedisi Antar Kota</h3>
+              <h3 className="text-xl font-semibold text-gray-900">Reguler</h3>
               <p className="mt-4 text-gray-600">
                 Layanan pengiriman barang antar kota dengan waktu pengiriman 1-3 hari tergantung jarak.
               </p>
               <p className="mt-4 text-lg font-semibold text-blue-600">Mulai dari Rp 10.000/kg</p>
               <Link
-                href="/layanan/antar-kota"
+                href="/public/layanan/reguler"
                 className="mt-8 block rounded-md bg-blue-600 px-3.5 py-2.5 text-center text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
               >
                 Selengkapnya
               </Link>
             </div>
             <div className="flex flex-col rounded-xl bg-white p-8 shadow-md ring-1 ring-gray-200">
-              <h3 className="text-xl font-semibold text-gray-900">Ekspedisi Antar Pulau</h3>
+              <h3 className="text-xl font-semibold text-gray-900">Ekonomi</h3>
               <p className="mt-4 text-gray-600">
                 Layanan pengiriman barang antar pulau dengan waktu pengiriman 3-7 hari tergantung destinasi.
               </p>
               <p className="mt-4 text-lg font-semibold text-blue-600">Mulai dari Rp 15.000/kg</p>
               <Link
-                href="/layanan/antar-pulau"
+                href="/public/layanan/ekonomi"
                 className="mt-8 block rounded-md bg-blue-600 px-3.5 py-2.5 text-center text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
               >
                 Selengkapnya
               </Link>
             </div>
             <div className="flex flex-col rounded-xl bg-white p-8 shadow-md ring-1 ring-gray-200">
-              <h3 className="text-xl font-semibold text-gray-900">Ekspedisi Khusus</h3>
+              <h3 className="text-xl font-semibold text-gray-900">Express</h3>
               <p className="mt-4 text-gray-600">
                 Layanan pengiriman barang khusus seperti barang berharga, pecah belah, atau berukuran besar.
               </p>
               <p className="mt-4 text-lg font-semibold text-blue-600">Mulai dari Rp 20.000/kg</p>
               <Link
-                href="/layanan/khusus"
+                href="/public/layanan/express"
                 className="mt-8 block rounded-md bg-blue-600 px-3.5 py-2.5 text-center text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
               >
                 Selengkapnya
@@ -271,13 +271,13 @@ export default function Home() {
           </h2>
           <div className="mt-10 flex items-center gap-x-6 lg:mt-0 lg:flex-shrink-0">
             <Link
-              href="/kontak"
+              href="/public/kontak"
               className="rounded-md bg-white px-6 py-3 text-base font-semibold text-blue-600 shadow-sm hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             >
               Hubungi Kami
             </Link>
             <Link
-              href="/tarif"
+              href="/public/tarif"
               className="text-base font-semibold leading-6 text-white"
             >
               Cek Tarif <span aria-hidden="true">→</span>

@@ -8,9 +8,9 @@ const navigation = {
     { name: 'Berita', href: '/berita' },
   ],
   layanan: [
-    { name: 'Ekspedisi Antar Kota', href: '/layanan/antar-kota' },
-    { name: 'Ekspedisi Antar Pulau', href: '/layanan/antar-pulau' },
-    { name: 'Ekspedisi Khusus', href: '/layanan/khusus' },
+    { name: 'Reguler', href: '/layanan/reguler' },
+    { name: 'Ekonomi', href: '/layanan/ekonomi' },
+    { name: 'Express', href: '/layanan/express' },
   ],
   bantuan: [
     { name: 'FAQ', href: '/bantuan/faq' },
