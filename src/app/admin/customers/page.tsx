@@ -13,7 +13,11 @@ import {
   ArrowDownTrayIcon,
   PhoneIcon,
   EnvelopeIcon,
-  MapPinIcon
+  MapPinIcon,
+  PlusCircleIcon,
+  PencilIcon,
+  TrashIcon,
+  EyeIcon
 } from '@heroicons/react/24/outline';
 import { getCustomers } from '@/app/actions';
 
@@ -21,14 +25,30 @@ function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(' ');
 }
 
-export default function CustomersPage() {
-  const [customers, setCustomers] = useState<any[]>([]);
+interface Customer {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  province: string;
+  category: string;
+  status: 'active' | 'inactive';
+  lastOrder?: string;
+  totalOrders: number;
+}
+
+export default function CustomerManagement() {
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchCategory, setSearchCategory] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [totalItems, setTotalItems] = useState(0);
   
   const router = useRouter();
@@ -39,6 +59,32 @@ export default function CustomersPage() {
     setLoading(true);
     try {
       console.log('Fetching customers data...');
+      
+      // First try direct API call without authentication
+      try {
+        const response = await fetch(`/api/customers?page=${page}&limit=10${statusFilter ? `&status=${statusFilter}` : ''}`, {
+          cache: 'no-store'
+        });
+        
+        if (!response.ok) {
+          throw new Error('API response not OK');
+        }
+        
+        const result = await response.json();
+        console.log('Customer data from API:', result);
+        
+        if (result.data && Array.isArray(result.data)) {
+          setCustomers(result.data);
+          setTotalItems(result.total);
+          setTotalPages(Math.ceil(result.total / result.limit));
+          return;
+        }
+      } catch (apiError) {
+        console.error('Error with direct API call:', apiError);
+        // Fall back to getCustomers
+      }
+      
+      // Fall back to original method if direct API call fails
       const result = await getCustomers(page, 10, statusFilter || undefined);
       console.log('Fetched customers data:', result);
       
@@ -104,6 +150,49 @@ export default function CustomersPage() {
     };
     return new Date(dateString).toLocaleDateString('id-ID', options);
   };
+
+  const filteredCustomers = customers.filter(customer => {
+    // Filter berdasarkan kategori pelanggan
+    if (categoryFilter !== 'all' && customer.category !== categoryFilter) {
+      return false;
+    }
+    
+    const searchLower = searchTerm.toLowerCase();
+    
+    // Filter berdasarkan kategori pencarian
+    if (searchCategory !== 'all' && searchTerm) {
+      switch (searchCategory) {
+        case 'name':
+          return customer.name?.toLowerCase().includes(searchLower) || false;
+        case 'id':
+          return String(customer.id).toLowerCase().includes(searchLower);
+        case 'contact':
+          return (customer.email?.toLowerCase().includes(searchLower) || false) || 
+                 (customer.phone?.toLowerCase().includes(searchLower) || false);
+        case 'address':
+          return (customer.address?.toLowerCase().includes(searchLower) || false) || 
+                 (customer.city?.toLowerCase().includes(searchLower) || false) || 
+                 (customer.province?.toLowerCase().includes(searchLower) || false);
+        default:
+          return true;
+      }
+    }
+    
+    // Pencarian umum jika kategori = all atau tidak ada kata kunci pencarian
+    return searchTerm ? (
+      (customer.name?.toLowerCase().includes(searchLower) || false) ||
+      String(customer.id).toLowerCase().includes(searchLower) ||
+      (customer.email?.toLowerCase().includes(searchLower) || false) ||
+      (customer.phone?.toLowerCase().includes(searchLower) || false) ||
+      (customer.address?.toLowerCase().includes(searchLower) || false) ||
+      (customer.city?.toLowerCase().includes(searchLower) || false) ||
+      (customer.province?.toLowerCase().includes(searchLower) || false) ||
+      (customer.category?.toLowerCase().includes(searchLower) || false)
+    ) : true;
+  });
+
+  // Mendapatkan daftar unik kategori pelanggan dari data
+  const customerCategories = [...new Set(customers.map(customer => customer.category))];
 
   return (
     <div className="p-4">
@@ -181,6 +270,35 @@ export default function CustomersPage() {
         </div>
       </div>
 
+      {/* Filter Kategori */}
+      <div className="mb-6">
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setCategoryFilter('all')}
+            className={`px-3 py-1 rounded-full text-sm font-medium ${
+              categoryFilter === 'all'
+                ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+            }`}
+          >
+            Semua
+          </button>
+          {customerCategories.map(category => (
+            <button
+              key={category}
+              onClick={() => setCategoryFilter(category)}
+              className={`px-3 py-1 rounded-full text-sm font-medium ${
+                categoryFilter === category
+                  ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                  : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+              }`}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Error display */}
       {error && (
         <div className="mb-4 p-3 border border-red-300 bg-red-50 text-red-800 rounded-lg">
@@ -239,8 +357,8 @@ export default function CustomersPage() {
               </div>
             </div>
           ))
-        ) : customers.length > 0 ? (
-          customers.map((customer) => (
+        ) : filteredCustomers.length > 0 ? (
+          filteredCustomers.map((customer) => (
             <div key={customer.id} className="bg-white p-4 rounded-lg border shadow-sm hover:shadow-md transition-shadow">
               <div className="flex items-center space-x-3 mb-3">
                 <div className="bg-blue-100 rounded-full p-2">

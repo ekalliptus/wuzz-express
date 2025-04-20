@@ -12,7 +12,15 @@ import {
   MagnifyingGlassIcon,
   FunnelIcon,
   ArrowDownTrayIcon,
-  AdjustmentsHorizontalIcon
+  AdjustmentsHorizontalIcon,
+  PlusCircleIcon,
+  PencilIcon,
+  TrashIcon,
+  EyeIcon,
+  ArrowPathIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  XCircleIcon
 } from '@heroicons/react/24/outline';
 import { getShipments } from '@/app/actions';
 
@@ -59,37 +67,47 @@ function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(' ');
 }
 
+interface Shipment {
+  id: string;
+  trackingNumber: string;
+  customer: {
+    name: string;
+    id: string;
+  };
+  origin: string;
+  destination: string;
+  status: 'pending' | 'in_transit' | 'delivered' | 'cancelled';
+  createdAt: string;
+  driverName?: string;
+  estimatedDelivery?: string;
+  items?: number;
+}
+
 export default function ShipmentsPage() {
-  const [shipments, setShipments] = useState<any[]>([]);
+  const [shipments, setShipments] = useState<Shipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchCategory, setSearchCategory] = useState('all');
   
   const router = useRouter();
   const { user, isAuthenticated, loading: authLoading } = useAuthContext();
 
   // Ambil data pengiriman
   const fetchShipments = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      console.log("Fetching shipments data...");
-      const result = await getShipments(page, 10, statusFilter || undefined);
-      console.log("Shipments data received:", result);
-      
-      if (result.data && result.data.length > 0) {
-        console.log("First shipment sample:", JSON.stringify(result.data[0], null, 2));
-      } else {
-        console.log("No shipment data found");
-      }
-      
+      const result = await getShipments(page, 10, statusFilter);
       setShipments(result.data);
       setTotalPages(Math.ceil(result.total / result.limit));
-    } catch (err: any) {
-      console.error("Error fetching shipments:", err);
-      setError(err.message || 'Gagal memuat data pengiriman');
+    } catch (err) {
+      console.error('Error fetching shipments:', err);
+      setError('Gagal memuat data pengiriman. Silakan coba lagi nanti.');
+      setShipments([]);
     } finally {
       setLoading(false);
     }
@@ -140,6 +158,72 @@ export default function ShipmentsPage() {
     // Implementasi pencarian akan ditambahkan nanti
   };
 
+  const filteredShipments = shipments.filter(shipment => {
+    // Filter berdasarkan status
+    if (statusFilter !== null && shipment.status !== statusFilter) {
+      return false;
+    }
+    
+    const searchLower = searchTerm.toLowerCase();
+    
+    // Filter berdasarkan kategori pencarian
+    if (searchCategory !== 'all' && searchTerm) {
+      switch (searchCategory) {
+        case 'tracking':
+          return shipment.trackingNumber?.toLowerCase().includes(searchLower) || false;
+        case 'customer':
+          return shipment.customer?.name?.toLowerCase().includes(searchLower) || false;
+        case 'origin':
+          return shipment.origin?.toLowerCase().includes(searchLower) || false;
+        case 'destination':
+          return shipment.destination?.toLowerCase().includes(searchLower) || false;
+        case 'driver':
+          return shipment.driverName?.toLowerCase().includes(searchLower) || false;
+        default:
+          return true;
+      }
+    }
+    
+    // Pencarian umum jika kategori = all atau tidak ada kata kunci pencarian
+    return searchTerm ? (
+      (shipment.trackingNumber?.toLowerCase().includes(searchLower) || false) ||
+      (shipment.customer?.name?.toLowerCase().includes(searchLower) || false) ||
+      (shipment.origin?.toLowerCase().includes(searchLower) || false) ||
+      (shipment.destination?.toLowerCase().includes(searchLower) || false) ||
+      (shipment.driverName?.toLowerCase().includes(searchLower) || false)
+    ) : true;
+  });
+
+  const getStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'in_transit':
+        return 'bg-blue-100 text-blue-800';
+      case 'delivered':
+        return 'bg-green-100 text-green-800';
+      case 'cancelled':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return <ClockIcon className="h-5 w-5 text-yellow-500" />;
+      case 'in_transit':
+        return <TruckIcon className="h-5 w-5 text-blue-500" />;
+      case 'delivered':
+        return <CheckCircleIcon className="h-5 w-5 text-green-500" />;
+      case 'cancelled':
+        return <XCircleIcon className="h-5 w-5 text-red-500" />;
+      default:
+        return <ArrowPathIcon className="h-5 w-5 text-gray-500" />;
+    }
+  };
+
   return (
     <div className="p-4">
       {/* Header */}
@@ -183,27 +267,33 @@ export default function ShipmentsPage() {
             </button>
           ))}
         </div>
-        <div className="flex-grow">
-          <form onSubmit={handleSearch} className="flex">
+        <div className="flex-grow flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-grow">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+            </div>
             <input
               type="text"
-              placeholder="Cari nomor resi..."
+              placeholder="Cari pengiriman..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-grow rounded-l-lg border border-gray-300 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
             />
-            <button 
-              type="submit"
-              className="bg-blue-600 text-white px-4 rounded-r-lg hover:bg-blue-700 transition-colors"
-            >
-              <MagnifyingGlassIcon className="h-5 w-5" />
-            </button>
-          </form>
+          </div>
+          <select
+            className="block w-full sm:w-44 py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            value={searchCategory}
+            onChange={(e) => setSearchCategory(e.target.value)}
+          >
+            <option value="all">Semua Kategori</option>
+            <option value="tracking">No. Tracking</option>
+            <option value="customer">Nama Pelanggan</option>
+            <option value="origin">Asal</option>
+            <option value="destination">Tujuan</option>
+            <option value="driver">Pengemudi</option>
+          </select>
         </div>
         <div className="flex space-x-2">
-          <button className="p-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
-            <FunnelIcon className="h-5 w-5" />
-          </button>
           <button className="p-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
             <ArrowDownTrayIcon className="h-5 w-5" />
           </button>
@@ -249,21 +339,21 @@ export default function ShipmentsPage() {
                     </td>
                   </tr>
                 ))
-              ) : shipments.length > 0 ? (
-                shipments.map((shipment) => (
+              ) : filteredShipments.length > 0 ? (
+                filteredShipments.map((shipment) => (
                   <tr key={shipment.id} className="border-b hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium text-gray-900">
                       <Link 
                         href={`/admin/shipments/detail/${shipment.id}`}
                         className="hover:text-blue-600 hover:underline"
                       >
-                        {shipment.receipt_number || shipment.receiptNumber || 'No. Resi tidak tersedia'}
+                        {shipment.trackingNumber || 'No. Resi tidak tersedia'}
                       </Link>
                     </td>
-                    <td className="px-4 py-3">{shipment.sender_name || shipment.sender?.name || 'Data pengirim tidak tersedia'}</td>
-                    <td className="px-4 py-3">{shipment.recipient_name || shipment.recipient?.name || 'Data penerima tidak tersedia'}</td>
-                    <td className="px-4 py-3">{shipment.destination_city || 'Tujuan tidak tersedia'}</td>
-                    <td className="px-4 py-3">{formatDate(shipment.created_at || shipment.createdAt)}</td>
+                    <td className="px-4 py-3">{shipment.customer?.name || 'Data pengirim tidak tersedia'}</td>
+                    <td className="px-4 py-3">{shipment.destination || 'Tujuan tidak tersedia'}</td>
+                    <td className="px-4 py-3">{shipment.origin || 'Asal tidak tersedia'}</td>
+                    <td className="px-4 py-3">{formatDate(shipment.createdAt)}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(shipment.status)}`}>
                         {getStatusText(shipment.status)}
@@ -298,7 +388,7 @@ export default function ShipmentsPage() {
               <div>
                 <p className="text-sm text-gray-700">
                   Menampilkan <span className="font-medium">{((page - 1) * 10) + 1}</span> sampai{" "}
-                  <span className="font-medium">{Math.min(page * 10, shipments.length)}</span> dari{" "}
+                  <span className="font-medium">{Math.min(page * 10, filteredShipments.length)}</span> dari{" "}
                   <span className="font-medium">{totalPages * 10}</span> hasil
                 </p>
               </div>

@@ -1,362 +1,410 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuthContext } from '@/context/AuthContext';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { 
-  MapPinIcon, 
+  PencilIcon, 
+  TrashIcon,
   PlusIcon,
   MagnifyingGlassIcon,
-  PencilIcon,
-  TrashIcon,
-  BuildingOfficeIcon,
-  PhoneIcon
+  XCircleIcon,
+  ExclamationTriangleIcon,
+  CheckCircleIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
-import { getLocations } from '@/app/actions';
+import { getLocations, deleteLocation } from '@/app/actions';
+import toast from 'react-hot-toast';
 
-function classNames(...classes: string[]) {
-  return classes.filter(Boolean).join(' ');
+// Define Location interface
+interface Location {
+  id: string;
+  name: string;
+  address: string;
+  city: string;
+  province: string;
+  postalCode: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export default function LocationsPage() {
-  const [locations, setLocations] = useState<any[]>([]);
+  const router = useRouter();
+  const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [typeFilter, setTypeFilter] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
   
-  const router = useRouter();
-  const { user, isAuthenticated, loading: authLoading } = useAuthContext();
-
-  // Fetch data lokasi dari database
+  // State for pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalLocations, setTotalLocations] = useState(0);
+  const [limit, setLimit] = useState(10);
+  
+  // State for search
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  
+  // State for delete confirmation modal
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [locationToDelete, setLocationToDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  
+  // Function to fetch locations data
   const fetchLocations = useCallback(async () => {
     setLoading(true);
+    setError(null);
+    
     try {
-      console.log('Fetching locations data...');
-      const result = await getLocations(typeFilter || undefined);
-      console.log('Fetched locations data:', result);
-      
-      // Cek apakah ada error dari server action
-      if (result.error) {
-        setError(result.error);
-        setLocations([]);
-        return;
-      }
-      
-      // Filter berdasarkan search term jika ada
-      let filteredLocations = result.locations;
-      if (searchTerm) {
-        const term = searchTerm.toLowerCase();
-        filteredLocations = filteredLocations.filter((location: any) => 
-          location.name.toLowerCase().includes(term) || 
-          location.city.toLowerCase().includes(term) ||
-          location.address.toLowerCase().includes(term)
-        );
-      }
-      
-      setLocations(filteredLocations);
-    } catch (err: any) {
-      console.error('Error fetching locations:', err);
-      setError(err.message || 'Gagal memuat data lokasi. Silakan coba lagi nanti.');
-      setLocations([]);
+      const result = await getLocations(currentPage, limit, searchTerm);
+      setLocations(result.locations);
+      setTotalLocations(result.totalCount);
+    } catch (error) {
+      console.error('Failed to fetch locations:', error);
+      setError('Failed to load locations. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, [typeFilter, searchTerm]);
-
-  // Load data lokasi saat komponen dimuat
+  }, [currentPage, limit, searchTerm]);
+  
+  // Fetch locations on initial load
   useEffect(() => {
-    if (isAuthenticated && user?.role === 'admin') {
-      fetchLocations();
-    }
-  }, [isAuthenticated, user, fetchLocations]);
-
-  // Redirect jika bukan admin
-  useEffect(() => {
-    if (!authLoading && (!isAuthenticated || (user && user.role !== 'admin'))) {
-      router.push('/auth/login');
-    }
-  }, [authLoading, isAuthenticated, user, router]);
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
+    fetchLocations();
+  }, [fetchLocations]);
+  
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+  
+  // Handle search
+  const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSearching(true);
+    setCurrentPage(1); // Reset to first page
     fetchLocations();
   };
-
-  const getLocationTypeText = (type: string) => {
-    switch (type) {
-      case 'hq':
-        return 'Kantor Pusat';
-      case 'branch':
-        return 'Cabang';
-      case 'warehouse':
-        return 'Gudang';
-      default:
-        return 'Lainnya';
+  
+  // Reset search
+  const resetSearch = () => {
+    setSearchTerm('');
+    setCurrentPage(1);
+    fetchLocations();
+  };
+  
+  // Handle delete click
+  const handleDeleteClick = (locationId: string) => {
+    setLocationToDelete(locationId);
+    setShowDeleteModal(true);
+  };
+  
+  // Handle delete confirmation
+  const handleConfirmDelete = async () => {
+    if (!locationToDelete) return;
+    
+    setDeleting(true);
+    
+    try {
+      await deleteLocation(locationToDelete);
+      toast.success('Lokasi berhasil dihapus');
+      
+      // Refresh data
+      fetchLocations();
+    } catch (err) {
+      console.error('Error deleting location:', err);
+      toast.error('Gagal menghapus lokasi');
+    } finally {
+      setDeleting(false);
+      setShowDeleteModal(false);
+      setLocationToDelete(null);
     }
   };
-
-  const getLocationTypeColor = (type: string) => {
-    switch (type) {
-      case 'hq':
-        return 'bg-purple-100 text-purple-800';
-      case 'branch':
-        return 'bg-blue-100 text-blue-800';
-      case 'warehouse':
-        return 'bg-orange-100 text-orange-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'bg-green-100 text-green-800';
-      case 'maintenance':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'inactive':
-        return 'bg-gray-100 text-gray-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'Aktif';
-      case 'maintenance':
-        return 'Pemeliharaan';
-      case 'inactive':
-        return 'Tidak Aktif';
-      default:
-        return status;
-    }
-  };
-
+  
+  // Calculate total pages
+  const totalPages = Math.ceil(totalLocations / limit);
+  
   return (
-    <div className="p-4">
-      {/* Header */}
-      <div className="mb-5 flex flex-col md:flex-row md:items-center md:justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 mb-3 md:mb-0">Lokasi</h1>
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-800">Kelola Lokasi</h1>
+          <p className="text-gray-600">Lihat dan kelola semua lokasi dalam sistem</p>
+        </div>
         <Link 
-          href="/admin/locations/create" 
-          className="inline-flex items-center justify-center py-2 px-4 bg-blue-600 text-white rounded-lg shadow-sm hover:bg-blue-700 transition-colors"
+          href="/admin/locations/add" 
+          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
         >
-          <PlusIcon className="h-5 w-5 mr-1" />
+          <PlusIcon className="h-5 w-5 mr-2" />
           Tambah Lokasi
         </Link>
       </div>
-
-      {/* Filter dan pencarian */}
-      <div className="mb-4 flex flex-col md:flex-row space-y-3 md:space-y-0 md:space-x-3">
-        <div className="flex flex-wrap gap-2">
-          <button 
-            onClick={() => setTypeFilter(null)} 
-            className={classNames(
-              "py-1 px-3 text-sm rounded-full",
-              typeFilter === null 
-                ? "bg-blue-100 text-blue-700 border border-blue-200" 
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            )}
-          >
-            Semua
-          </button>
-          <button 
-            onClick={() => setTypeFilter('hq')} 
-            className={classNames(
-              "py-1 px-3 text-sm rounded-full",
-              typeFilter === 'hq' 
-                ? "bg-purple-100 text-purple-700 border border-purple-200" 
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            )}
-          >
-            Kantor Pusat
-          </button>
-          <button 
-            onClick={() => setTypeFilter('branch')} 
-            className={classNames(
-              "py-1 px-3 text-sm rounded-full",
-              typeFilter === 'branch' 
-                ? "bg-blue-100 text-blue-700 border border-blue-200" 
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            )}
-          >
-            Cabang
-          </button>
-          <button 
-            onClick={() => setTypeFilter('warehouse')} 
-            className={classNames(
-              "py-1 px-3 text-sm rounded-full",
-              typeFilter === 'warehouse' 
-                ? "bg-orange-100 text-orange-700 border border-orange-200" 
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            )}
-          >
-            Gudang
-          </button>
-        </div>
-        
-        <div className="flex-grow">
-          <form onSubmit={handleSearchSubmit} className="flex">
+      
+      {/* Search Bar */}
+      <div className="bg-white p-4 rounded-md shadow-sm mb-6">
+        <form onSubmit={handleSearch} className="flex items-center">
+          <div className="relative flex-grow">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+            </div>
             <input
               type="text"
-              placeholder="Cari nama, kota, atau alamat..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-grow rounded-l-lg border border-gray-300 py-2 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              placeholder="Cari lokasi berdasarkan nama, alamat, kota, atau provinsi..."
             />
-            <button 
-              type="submit"
-              className="bg-blue-600 text-white px-4 rounded-r-lg hover:bg-blue-700 transition-colors"
-            >
-              <MagnifyingGlassIcon className="h-5 w-5" />
-            </button>
-          </form>
-        </div>
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={resetSearch}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+              >
+                <XCircleIcon className="h-5 w-5 text-gray-400 hover:text-gray-500" />
+              </button>
+            )}
+          </div>
+          <button
+            type="submit"
+            disabled={isSearching || !searchTerm.trim()}
+            className="ml-4 px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-400 disabled:cursor-not-allowed"
+          >
+            {isSearching ? 'Mencari...' : 'Cari'}
+          </button>
+        </form>
       </div>
-
-      {/* Error display */}
+      
+      {/* Error message */}
       {error && (
-        <div className="mb-4 p-3 border border-red-300 bg-red-50 text-red-800 rounded-lg">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="font-medium">Error:</p>
-              <p className="mt-1">{error}</p>
-            </div>
-            <button 
-              onClick={() => setError(null)}
-              className="ml-4 inline-flex items-center p-1.5 bg-red-50 text-red-700 rounded-full hover:bg-red-100"
-              aria-label="Tutup"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-            </button>
-          </div>
-          <div className="mt-3 flex justify-end">
-            <button 
-              onClick={() => fetchLocations()}
-              className="text-sm font-medium px-3 py-1.5 bg-red-100 text-red-800 rounded hover:bg-red-200"
-            >
-              Coba Lagi
-            </button>
-            <button 
-              onClick={() => setError(null)}
-              className="ml-2 text-sm font-medium px-3 py-1.5 bg-gray-100 text-gray-800 rounded hover:bg-gray-200"
-            >
-              Tutup
-            </button>
-          </div>
+        <div className="my-4 p-4 bg-red-50 border border-red-200 rounded-md flex items-start">
+          <ExclamationTriangleIcon className="h-5 w-5 text-red-500 mr-2 mt-0.5" />
+          <p className="text-red-700">{error}</p>
         </div>
       )}
-
-      {/* Grid Lokasi */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {loading ? (
-          Array(6).fill(0).map((_, i) => (
-            <div key={i} className="bg-white p-4 rounded-lg border shadow-sm animate-pulse">
-              <div className="flex justify-between mb-3">
-                <div className="h-5 bg-gray-200 rounded w-1/2"></div>
-                <div className="h-5 bg-gray-200 rounded w-16"></div>
-              </div>
-              <div className="h-4 bg-gray-200 rounded mb-3 w-full"></div>
-              <div className="h-4 bg-gray-200 rounded mb-3 w-3/4"></div>
-              <div className="h-4 bg-gray-200 rounded mb-5 w-1/2"></div>
-              <div className="flex justify-end">
-                <div className="h-8 bg-gray-200 rounded w-20 mr-2"></div>
-                <div className="h-8 bg-gray-200 rounded w-20"></div>
-              </div>
+      
+      {/* Locations table */}
+      <div className="bg-white rounded-md shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Nama Lokasi
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Alamat
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Kota
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Provinsi
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Aksi
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
+                    Memuat data lokasi...
+                  </td>
+                </tr>
+              ) : locations.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
+                    {searchTerm ? 'Tidak ditemukan lokasi yang sesuai dengan pencarian' : 'Belum ada data lokasi'}
+                  </td>
+                </tr>
+              ) : (
+                locations.map((location) => (
+                  <tr key={location.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {location.name}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
+                      {location.address}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {location.city}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {location.province}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {location.isActive ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          <CheckCircleIcon className="h-4 w-4 mr-1" />
+                          Aktif
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                          <XMarkIcon className="h-4 w-4 mr-1" />
+                          Tidak Aktif
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex justify-end space-x-2">
+                        <Link
+                          href={`/admin/locations/edit/${location.id}`}
+                          className="text-blue-600 hover:text-blue-900"
+                        >
+                          <PencilIcon className="h-5 w-5" aria-hidden="true" />
+                        </Link>
+                        <button
+                          onClick={() => handleDeleteClick(location.id)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          <TrashIcon className="h-5 w-5" aria-hidden="true" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        
+        {/* Pagination */}
+        {!loading && locations.length > 0 && (
+          <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+            <div className="flex-1 flex justify-between sm:hidden">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
+              >
+                Sebelumnya
+              </button>
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
+              >
+                Selanjutnya
+              </button>
             </div>
-          ))
-        ) : locations.length > 0 ? (
-          locations.map((location) => (
-            <div key={location.id} className="bg-white p-4 rounded-lg border shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex justify-between items-start mb-2">
-                <h3 className="text-lg font-semibold text-gray-900">{location.name}</h3>
-                <span className={classNames(
-                  "px-2 py-1 text-xs font-medium rounded-full",
-                  getLocationTypeColor(location.type)
-                )}>
-                  {getLocationTypeText(location.type)}
-                </span>
+            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-gray-700">
+                  Menampilkan{' '}
+                  <span className="font-medium">
+                    {locations.length === 0 ? 0 : (currentPage - 1) * limit + 1}
+                  </span>{' '}
+                  sampai{' '}
+                  <span className="font-medium">
+                    {Math.min(currentPage * limit, totalLocations)}
+                  </span>{' '}
+                  dari{' '}
+                  <span className="font-medium">{totalLocations}</span> hasil
+                </p>
               </div>
-              
-              <div className="space-y-2 mb-4">
-                <div className="flex items-start">
-                  <MapPinIcon className="h-5 w-5 text-gray-500 mr-2 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-gray-700 text-sm">{location.address}</p>
-                    <p className="text-gray-700 text-sm">
-                      {location.city}, {location.province}
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center">
-                  <PhoneIcon className="h-4 w-4 text-gray-500 mr-2" />
-                  <span className="text-gray-700 text-sm">{location.phone}</span>
-                </div>
-                
-                <div className="flex items-center">
-                  <BuildingOfficeIcon className="h-4 w-4 text-gray-500 mr-2" />
-                  <span className="text-gray-700 text-sm">{location.email}</span>
-                </div>
-              </div>
-              
-              <div className="flex justify-between items-center pt-3 border-t">
-                <span className={classNames(
-                  "px-2 py-1 text-xs font-medium rounded-full",
-                  getStatusColor(location.status)
-                )}>
-                  {getStatusText(location.status)}
-                </span>
-                
-                <div className="space-x-2">
-                  <Link
-                    href={`/admin/locations/${location.id}/edit`}
-                    className="inline-flex items-center py-1 px-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
-                  >
-                    <PencilIcon className="h-4 w-4 mr-1" />
-                    Edit
-                  </Link>
-                  
+              <div>
+                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
                   <button
-                    className="inline-flex items-center py-1 px-2 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
                   >
-                    <TrashIcon className="h-4 w-4 mr-1" />
-                    Hapus
+                    <span className="sr-only">Sebelumnya</span>
+                    <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
                   </button>
-                </div>
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    // Logic to show pages around current page
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => handlePageChange(pageNum)}
+                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                          currentPage === pageNum
+                            ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                            : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
+                  >
+                    <span className="sr-only">Selanjutnya</span>
+                    <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </nav>
               </div>
             </div>
-          ))
-        ) : (
-          <div className="col-span-full bg-white p-8 rounded-lg border text-center">
-            <div className="inline-block p-3 bg-blue-50 rounded-full mb-4">
-              <MapPinIcon className="h-8 w-8 text-blue-500" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">Tidak ada lokasi ditemukan</h3>
-            <p className="text-gray-500 mb-4">Tambahkan lokasi baru untuk mulai mengelola cabang dan gudang Anda</p>
-            <Link
-              href="/admin/locations/create"
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <PlusIcon className="h-5 w-5 mr-1" />
-              Tambah Lokasi Baru
-            </Link>
           </div>
         )}
       </div>
-
-      {/* Peta Lokasi */}
-      {locations.length > 0 && (
-        <div className="mt-8 bg-white p-5 rounded-lg border shadow-sm">
-          <h3 className="text-lg font-semibold text-gray-900 mb-3">Peta Lokasi</h3>
-          <div className="h-64 bg-gray-100 rounded-lg flex items-center justify-center">
-            <p className="text-gray-500">Peta lokasi akan ditampilkan di sini (Integrasi dengan Google Maps)</p>
+      
+      {/* Delete confirmation modal */}
+      {showDeleteModal && (
+        <div className="fixed z-10 inset-0 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                    <ExclamationTriangleIcon className="h-6 w-6 text-red-600" aria-hidden="true" />
+                  </div>
+                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900">Hapus Lokasi</h3>
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500">
+                        Apakah Anda yakin ingin menghapus lokasi ini? Tindakan ini tidak dapat dibatalkan.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  disabled={deleting}
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm disabled:bg-red-400 disabled:cursor-not-allowed"
+                >
+                  {deleting ? 'Menghapus...' : 'Hapus'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteModal(false)}
+                  disabled={deleting}
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm disabled:cursor-not-allowed"
+                >
+                  Batal
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

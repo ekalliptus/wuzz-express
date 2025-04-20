@@ -2,6 +2,8 @@
 import { neon } from "@neondatabase/serverless";
 import { Shipment, ServiceType } from "@/types";
 import * as crypto from 'crypto';
+import { createClient } from "@neondatabase/serverless";
+import { Client } from "@neondatabase/serverless";
 
 /**
  * Mendapatkan base URL untuk API calls
@@ -135,117 +137,75 @@ function addTokenToUrl(url: string): string {
  */
 export async function getShipments(page = 1, limit = 10, status?: string) {
   try {
-    // Coba dengan API request terlebih dahulu
-    try {
-      // Buat URL dengan token sebagai parameter query
-      let url = `${getBaseUrl()}/api/admin/shipments?page=${page}&limit=${limit}`;
-      if (status) {
-        url += `&status=${status}`;
-      }
-      
-      // Tambahkan token ke URL
-      url = addTokenToUrl(url);
-      
-      console.log(`Request ke URL: ${url}`);
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: getAuthHeaders(),
-        cache: 'no-store'
-      });
-      
-      if (response.ok) {
-        return await response.json();
-      }
-      
-      // Jika response tidak OK, lempar error untuk masuk ke fallback
-      throw new Error(`API request failed: ${response.statusText}`);
-    } catch (apiError) {
-      console.log("API request failed, menggunakan direct database access");
-      
-      // Fallback: Akses database langsung
-      const sql = neon(process.env.DATABASE_URL!);
-      
-      // Hitung total untuk pagination
-      const countResult = await sql`
-        SELECT COUNT(*) as total FROM shipments
-        ${status ? sql`WHERE status = ${status}` : sql``}
-      `;
-      
-      const total = Number(countResult[0]?.total || 0);
-      
-      // Query dengan pagination
-      const offset = (page - 1) * limit;
-      
-      const shipments = await sql`
-        SELECT 
-          s.*,
-          st.name as service_type_name,
-          st.code as service_type_code,
-          st.description as service_type_description
-        FROM shipments s
-        LEFT JOIN service_types st ON s.service_type_id = st.id
-        ${status ? sql`WHERE s.status = ${status}` : sql``}
-        ORDER BY s.created_at DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `;
-      
-      // Format data untuk sesuai dengan tipe di API
-      const formattedShipments = shipments.map(s => ({
-        id: s.id,
-        receiptNumber: s.receipt_number,
-        receipt_number: s.receipt_number,
-        senderId: s.sender_id,
-        recipientId: s.recipient_id,
-        serviceTypeId: s.service_type_id,
-        weight: Number(s.weight),
-        price: Number(s.price),
-        status: s.status,
-        description: s.description,
-        items: [],
-        pickupDate: s.pickup_date,
-        estimatedDeliveryDate: s.estimated_delivery_date,
-        actualDeliveryDate: s.actual_delivery_date,
-        createdAt: s.created_at,
-        created_at: s.created_at,
-        updatedAt: s.updated_at,
-        serviceType: {
-          id: s.service_type_id,
-          name: s.service_type_name,
-          code: s.service_type_code || '',
-          description: s.service_type_description || '',
-          estimatedTime: '',
-          pricePerKg: 0
-        },
-        sender: {
-          name: s.sender_name,
-        },
-        sender_name: s.sender_name,
-        recipient: {
-          name: s.recipient_name,
-        },
-        recipient_name: s.recipient_name,
-        destination_city: s.destination_city || s.recipient_address,
-      }));
-      
-      return {
-        data: formattedShipments,
-        total,
-        page,
-        limit,
-        note: 'Data loaded directly from database'
-      };
+    // Initialize the SQL client
+    const sql = neon(process.env.DATABASE_URL!);
+    
+    // Hitung offset untuk pagination
+    const offset = (page - 1) * limit;
+    
+    // Buat query dasar tanpa service_type_id
+    let baseQuery = `
+      SELECT 
+        s.id, s.tracking_number, s.customer_id, s.origin_id, s.destination_address,
+        s.destination_city, s.destination_province, s.status, s.created_at,
+        s.estimated_delivery, s.driver_id, s.items_count,
+        c.name as customer_name,
+        d.name as driver_name,
+        l.name as origin_name
+      FROM shipments s
+      LEFT JOIN customers c ON s.customer_id = c.id
+      LEFT JOIN drivers d ON s.driver_id = d.id
+      LEFT JOIN locations l ON s.origin_id = l.id
+    `;
+    
+    // Tambahkan kondisi WHERE jika ada filter status
+    const whereClause = status ? `WHERE s.status = '${status}'` : '';
+    
+    // Tambahkan ORDER BY dan LIMIT untuk pagination
+    const paginationClause = `ORDER BY s.created_at DESC LIMIT ${limit} OFFSET ${offset}`;
+    
+    // Gabungkan query
+    const query = `${baseQuery} ${whereClause} ${paginationClause}`;
+    
+    // Jalankan query utama menggunakan sql client
+    const result = await sql.query(query);
+    
+    // Query untuk menghitung total
+    let countQuery = `SELECT COUNT(*) as total FROM shipments s`;
+    if (status) {
+      countQuery += ` WHERE s.status = '${status}'`;
     }
-  } catch (error) {
-    console.error("Error fetching shipments:", error);
-    // Return empty data instead of throwing error
+    
+    // Jalankan query count menggunakan sql client
+    const countResult = await sql.query(countQuery);
+    const total = parseInt(countResult[0].total);
+    
+    // Transform data untuk frontend
+    const transformedData = result.map(row => ({
+      id: row.id,
+      trackingNumber: row.tracking_number,
+      customer: {
+        name: row.customer_name,
+        id: row.customer_id
+      },
+      origin: row.origin_name || 'Asal tidak tersedia',
+      destination: `${row.destination_address}, ${row.destination_city}, ${row.destination_province}`,
+      status: row.status,
+      createdAt: row.created_at,
+      driverName: row.driver_name,
+      estimatedDelivery: row.estimated_delivery,
+      items: row.items_count
+    }));
+    
     return {
-      data: [],
-      total: 0,
-      page,
+      data: transformedData,
+      total,
       limit,
-      error: "Error fetching shipments"
+      page
     };
+  } catch (error) {
+    console.error("Error in getShipments:", error);
+    throw error;
   }
 }
 
@@ -629,6 +589,67 @@ export async function getCustomers(page = 1, limit = 10, status?: string) {
   }
 }
 
+// Add the missing addCustomer function
+export async function addCustomer(customerData: any) {
+  try {
+    console.log('Adding new customer with data:', customerData);
+    
+    // Initial validation
+    if (!customerData.name || !customerData.phone || !customerData.address) {
+      throw new Error('Required fields missing');
+    }
+    
+    // Connect to the database
+    const sql = await getDb();
+    
+    // Insert the new customer
+    const result = await sql`
+      INSERT INTO customers (
+        name, 
+        email, 
+        phone, 
+        category,
+        address,
+        province,
+        city,
+        postal_code,
+        notes,
+        role,
+        status,
+        created_at,
+        updated_at
+      ) VALUES (
+        ${customerData.name},
+        ${customerData.email || null},
+        ${customerData.phone},
+        ${customerData.category || 'personal'},
+        ${customerData.address},
+        ${customerData.province},
+        ${customerData.city},
+        ${customerData.postal_code},
+        ${customerData.notes || null},
+        ${'customer'},
+        ${'active'},
+        NOW(),
+        NOW()
+      ) RETURNING id
+    `;
+    
+    console.log('Customer added successfully:', result);
+    
+    return {
+      success: true,
+      message: 'Customer added successfully',
+      data: {
+        id: result[0]?.id
+      }
+    };
+  } catch (error: any) {
+    console.error('Error adding customer:', error);
+    throw new Error(`Failed to add customer: ${error.message}`);
+  }
+}
+
 /**
  * Mendapatkan laporan
  */
@@ -729,101 +750,255 @@ export async function getReports(type?: string) {
 }
 
 /**
- * Mendapatkan data lokasi/cabang
+ * Location Actions
  */
-export async function getLocations(type?: string) {
-  try {
-    // Coba dengan API request terlebih dahulu
-    try {
-      // Buat URL dengan token sebagai parameter query
-      let url = `${getBaseUrl()}/api/admin/locations`;
-      if (type) {
-        url += `?type=${type}`;
-      }
-      
-      // Tambahkan token ke URL
-      url = addTokenToUrl(url);
-      
-      console.log(`Request ke URL: ${url}`);
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: getAuthHeaders(),
-        cache: 'no-store'
-      });
-      
-      if (response.ok) {
-        return await response.json();
-      }
-      
-      // Jika response tidak OK, lempar error untuk masuk ke fallback
-      throw new Error(`API request failed: ${response.statusText}`);
-    } catch (apiError) {
-      console.log("API request failed, menggunakan direct database access");
-      
-      // Fallback: Akses database langsung
-      const sql = neon(process.env.DATABASE_URL!);
-      
-      // Cek apakah tabel locations ada
-      const tablesResult = await sql`
-        SELECT EXISTS (
-          SELECT FROM information_schema.tables 
-          WHERE table_schema = 'public' 
-          AND table_name = 'locations'
-        ) as exists
-      `;
-      
-      const locationsExist = tablesResult[0]?.exists;
-      
-      // Jika tabel belum ada, berikan data dummy
-      if (!locationsExist) {
-        const dummyLocations = [
-          { id: 1, name: 'Jakarta Pusat', address: 'Jl. Merdeka No. 1, Jakarta Pusat', type: 'hub', capacity: 100, status: 'active' },
-          { id: 2, name: 'Bandung', address: 'Jl. Asia Afrika No. 15, Bandung', type: 'branch', capacity: 50, status: 'active' },
-          { id: 3, name: 'Surabaya', address: 'Jl. Panglima Sudirman No. 10, Surabaya', type: 'hub', capacity: 80, status: 'active' },
-          { id: 4, name: 'Medan', address: 'Jl. Diponegoro No. 5, Medan', type: 'branch', capacity: 40, status: 'active' },
-          { id: 5, name: 'Makassar', address: 'Jl. Urip Sumoharjo No. 7, Makassar', type: 'branch', capacity: 30, status: 'inactive' },
-        ];
 
-        const filteredLocations = type 
-          ? dummyLocations.filter(loc => loc.type === type) 
-          : dummyLocations;
-          
-        return { 
-          locations: filteredLocations,
-          total: filteredLocations.length,
-          note: 'Using dummy data as locations table does not exist'
-        };
-      }
-      
-      // Query database jika tabel ada
-      let query;
-      if (type) {
-        query = await sql`SELECT * FROM locations WHERE type = ${type}`;
-      } else {
-        query = await sql`SELECT * FROM locations`;
-      }
-      
-      return { 
-        locations: query, 
-        total: query.length,
-        note: 'Data loaded directly from database'
-      };
-    }
-  } catch (error) {
-    console.error("Error in getLocations:", error);
-    // Return empty data instead of throwing error
-    const dummyLocations = [
-      { id: 1, name: 'Jakarta Pusat', address: 'Jl. Merdeka No. 1, Jakarta Pusat', type: 'hub', capacity: 100, status: 'active' },
-      { id: 2, name: 'Bandung', address: 'Jl. Asia Afrika No. 15, Bandung', type: 'branch', capacity: 50, status: 'active' },
-      { id: 3, name: 'Surabaya', address: 'Jl. Panglima Sudirman No. 10, Surabaya', type: 'hub', capacity: 80, status: 'active' },
-    ];
+// Get all locations with pagination and optional search
+export async function getLocations(page = 1, limit = 10, searchTerm = '') {
+  const offset = (page - 1) * limit;
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  
+  try {
+    await client.connect();
     
-    return { 
-      locations: dummyLocations, 
-      total: dummyLocations.length,
-      error: 'Error fetching locations, returning dummy data'
+    // Run count and data queries in parallel for better performance
+    const [countResult, dataResult] = await Promise.all([
+      // Count query with search applied
+      client.query(
+        `SELECT COUNT(*) FROM locations 
+         WHERE name ILIKE $1 OR 
+               address ILIKE $1 OR 
+               city ILIKE $1 OR 
+               province ILIKE $1`,
+        [`%${searchTerm}%`]
+      ),
+      
+      // Data query with pagination and search
+      client.query(
+        `SELECT id, name, address, city, province, postal_code as "postalCode", 
+                is_active as "isActive", created_at as "createdAt", 
+                updated_at as "updatedAt"
+         FROM locations
+         WHERE name ILIKE $1 OR 
+               address ILIKE $1 OR 
+               city ILIKE $1 OR 
+               province ILIKE $1
+         ORDER BY created_at DESC
+         LIMIT $2 OFFSET $3`,
+        [`%${searchTerm}%`, limit, offset]
+      )
+    ]);
+    
+    const totalCount = parseInt(countResult.rows[0].count);
+    const locations = dataResult.rows;
+    
+    return {
+      locations,
+      totalCount,
+      limit,
+      currentPage: page
     };
+  } catch (error) {
+    console.error('Error getting locations:', error);
+    throw new Error('Failed to fetch locations');
+  } finally {
+    await client.end();
+  }
+}
+
+// Get location by ID
+export async function getLocationById(id: string) {
+  try {
+    // Initialize the SQL client
+    const sql = neon(process.env.DATABASE_URL!);
+    
+    const query = `
+      SELECT 
+        id, name, address, city, province, postal_code as "postalCode",
+        is_active as "isActive", created_at as "createdAt", updated_at as "updatedAt"
+      FROM locations
+      WHERE id = $1
+    `;
+    
+    const result = await sql.query(query, [id]);
+    
+    if (result.length === 0) {
+      return null;
+    }
+    
+    return result[0];
+  } catch (error) {
+    console.error('Error fetching location by id:', error);
+    if (error instanceof Error) {
+      throw new Error(`Failed to fetch location: ${error.message}`);
+    } else {
+      throw new Error('Failed to fetch location: Unknown error');
+    }
+  }
+}
+
+// Add a new location
+export async function addLocation(data: {
+  name: string;
+  address: string;
+  city: string;
+  province: string;
+  postalCode?: string;
+  isActive: boolean;
+}) {
+  try {
+    // Initialize the SQL client
+    const sql = neon(process.env.DATABASE_URL!);
+    
+    const query = `
+      INSERT INTO locations (
+        name, address, city, province, postal_code, is_active
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6
+      )
+      RETURNING 
+        id, name, address, city, province, postal_code as "postalCode",
+        is_active as "isActive", created_at as "createdAt", updated_at as "updatedAt"
+    `;
+    
+    const result = await sql.query(query, [
+      data.name,
+      data.address,
+      data.city,
+      data.province,
+      data.postalCode || null,
+      data.isActive
+    ]);
+    
+    return result[0];
+  } catch (error) {
+    console.error('Error adding location:', error);
+    if (error instanceof Error) {
+      throw new Error(`Failed to add location: ${error.message}`);
+    } else {
+      throw new Error('Failed to add location: Unknown error');
+    }
+  }
+}
+
+// Update an existing location
+export async function updateLocation(data: {
+  id: string;
+  name?: string;
+  address?: string;
+  city?: string;
+  province?: string;
+  postalCode?: string;
+  isActive?: boolean;
+}) {
+  try {
+    // Initialize the SQL client
+    const sql = neon(process.env.DATABASE_URL!);
+    
+    // First, check if the location exists
+    const locationCheck = await getLocationById(data.id);
+    
+    if (!locationCheck) {
+      throw new Error('Location not found');
+    }
+    
+    // Build the SET part of the query based on provided data
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramCounter = 1;
+    
+    if (data.name !== undefined) {
+      updates.push(`name = $${paramCounter++}`);
+      values.push(data.name);
+    }
+    
+    if (data.address !== undefined) {
+      updates.push(`address = $${paramCounter++}`);
+      values.push(data.address);
+    }
+    
+    if (data.city !== undefined) {
+      updates.push(`city = $${paramCounter++}`);
+      values.push(data.city);
+    }
+    
+    if (data.province !== undefined) {
+      updates.push(`province = $${paramCounter++}`);
+      values.push(data.province);
+    }
+    
+    if (data.postalCode !== undefined) {
+      updates.push(`postal_code = $${paramCounter++}`);
+      values.push(data.postalCode);
+    }
+    
+    if (data.isActive !== undefined) {
+      updates.push(`is_active = $${paramCounter++}`);
+      values.push(data.isActive);
+    }
+    
+    // Always update the updated_at timestamp
+    updates.push(`updated_at = NOW()`);
+    
+    if (updates.length === 0) {
+      return locationCheck; // No updates to make
+    }
+    
+    // Add the ID as the last parameter
+    values.push(data.id);
+    
+    const query = `
+      UPDATE locations
+      SET ${updates.join(', ')}
+      WHERE id = $${paramCounter}
+      RETURNING 
+        id, name, address, city, province, postal_code as "postalCode",
+        is_active as "isActive", created_at as "createdAt", updated_at as "updatedAt"
+    `;
+    
+    const result = await sql.query(query, values);
+    
+    return result[0];
+  } catch (error) {
+    console.error('Error updating location:', error);
+    if (error instanceof Error) {
+      throw new Error(`Failed to update location: ${error.message}`);
+    } else {
+      throw new Error('Failed to update location: Unknown error');
+    }
+  }
+}
+
+// Delete a location
+export async function deleteLocation(id: string) {
+  try {
+    // Initialize the SQL client
+    const sql = neon(process.env.DATABASE_URL!);
+    
+    // First, check if the location exists
+    const locationCheck = await getLocationById(id);
+    
+    if (!locationCheck) {
+      throw new Error('Location not found');
+    }
+    
+    // Delete the location
+    const query = `
+      DELETE FROM locations
+      WHERE id = $1
+      RETURNING id
+    `;
+    
+    await sql.query(query, [id]);
+    
+    return { success: true, message: 'Location deleted successfully' };
+  } catch (error) {
+    console.error('Error deleting location:', error);
+    if (error instanceof Error) {
+      throw new Error(`Failed to delete location: ${error.message}`);
+    } else {
+      throw new Error('Failed to delete location: Unknown error');
+    }
   }
 }
 
@@ -909,289 +1084,151 @@ export async function authenticateUser(email: string, password: string) {
 }
 
 /**
- * Mendapatkan data dashboard untuk admin/staff
+ * Fungsi untuk mendapatkan data dashboard Admin
  */
 export async function getDashboardData() {
+  const sql = neon(process.env.DATABASE_URL!);
+  
+  const result: any = {
+    recentShipments: [],
+    shipmentsByStatus: [],
+    totalRevenue: 0,
+    userCount: 0,
+    locationCount: 0,
+    driverCount: 0,
+    activeDrivers: [],
+    weeklyShipments: []
+  };
+  
   try {
-    console.log('actions.ts: Memulai getDashboardData');
+    // Use Promise.allSettled to run all queries concurrently
+    const [
+      recentShipmentsResult,
+      shipmentsByStatusResult,
+      totalRevenueResult,
+      userCountResult,
+      locationCountResult,
+      driverCountResult,
+      activeDriversResult,
+      weeklyShipmentsResult
+    ] = await Promise.allSettled([
+      // Get recent shipments
+      sql`
+        SELECT 
+          s.id, 
+          s.tracking_number, 
+          s.origin_name, 
+          s.destination_name, 
+          s.status, 
+          s.created_at, 
+          s.updated_at,
+          c.name as customer_name
+        FROM shipments s
+        LEFT JOIN customers c ON s.customer_id = c.id
+        ORDER BY s.created_at DESC 
+        LIMIT 5
+      `,
+      
+      // Get shipment counts by status
+      sql`
+        SELECT status, COUNT(*) as count
+        FROM shipments
+        GROUP BY status
+        ORDER BY count DESC
+      `,
+      
+      // Get total revenue
+      sql`
+        SELECT COALESCE(SUM(price), 0) as total
+        FROM shipments
+        WHERE status = 'delivered'
+      `,
+      
+      // Get user count
+      sql`SELECT COUNT(*) as count FROM customers`,
+      
+      // Get location count
+      sql`SELECT COUNT(*) as count FROM locations`,
+      
+      // Get driver count
+      sql`SELECT COUNT(*) as count FROM drivers`,
+      
+      // Get active drivers
+      sql`
+        SELECT 
+          d.id, 
+          d.name, 
+          d.license_number,
+          l.name as location_name,
+          (
+            SELECT COUNT(*) 
+            FROM shipments s 
+            WHERE s.driver_id = d.id AND s.status IN ('picked', 'in_transit')
+          ) as active_shipments
+        FROM drivers d
+        LEFT JOIN locations l ON d.location_id = l.id
+        WHERE d.is_active = true
+        ORDER BY active_shipments DESC, d.name
+        LIMIT 10
+      `,
+      
+      // Get weekly shipments for last 8 weeks
+      sql`
+        SELECT 
+          date_trunc('week', created_at) as week,
+          COUNT(*) as count
+        FROM 
+          shipments
+        WHERE 
+          created_at >= NOW() - INTERVAL '8 weeks'
+        GROUP BY 
+          date_trunc('week', created_at)
+        ORDER BY 
+          week ASC
+      `
+    ]);
     
-    // Periksa DATABASE_URL
-    if (!process.env.DATABASE_URL) {
-      console.error('actions.ts: DATABASE_URL tidak ditemukan');
-      return {
-        shipmentsByStatus: [],
-        recentShipments: [],
-        revenue: 0,
-        userCount: 0,
-        locationCount: 0,
-        error: 'Konfigurasi database tidak lengkap'
-      };
+    // Process results and handle potential errors for each query
+    if (recentShipmentsResult.status === 'fulfilled') {
+      result.recentShipments = recentShipmentsResult.value;
     }
     
-    const sql = neon(process.env.DATABASE_URL);
+    if (shipmentsByStatusResult.status === 'fulfilled') {
+      result.shipmentsByStatus = shipmentsByStatusResult.value;
+    }
     
-    // Gunakan pendekatan yang lebih langsung untuk memeriksa tabel
-    try {
-      console.log('actions.ts: Memeriksa keberadaan tabel dengan metode alternatif');
-      
-      // Ambil semua tabel di skema public
-      const allTablesResult = await sql.query(`
-        SELECT table_name 
-        FROM information_schema.tables 
-        WHERE table_schema = 'public'
-      `);
-      
-      // Transformasi ke array nama tabel
-      const allTables = allTablesResult.map((row: any) => row.table_name);
-      console.log('actions.ts: Semua tabel yang ditemukan:', allTables);
-      
-      // Periksa tabel yang diperlukan (termasuk customers dan reports)
-      const requiredTables = ['shipments', 'service_types', 'users', 'locations', 'customers', 'reports'];
-      const missingTables = requiredTables.filter(table => !allTables.includes(table));
-      
-      if (missingTables.length > 0) {
-        console.log('actions.ts: Tabel tidak ditemukan:', missingTables);
-        // Data dummy untuk dashboard
-        return {
-          shipmentsByStatus: [
-            { status: 'pending', count: 15 },
-            { status: 'in_transit', count: 42 },
-            { status: 'delivered', count: 87 },
-            { status: 'cancelled', count: 5 }
-          ],
-          recentShipments: Array(10).fill(0).map((_, i) => ({
-            id: i + 1,
-            receipt_number: `WZ-${String(2023000 + i + 1).padStart(8, '0')}`,
-            sender_name: `Pengirim ${i + 1}`,
-            recipient_name: `Penerima ${i + 1}`,
-            origin_city: 'Jakarta',
-            destination_city: ['Surabaya', 'Bandung', 'Semarang', 'Yogyakarta', 'Denpasar'][i % 5],
-            weight: Math.floor(Math.random() * 10) + 1,
-            price: Math.floor(Math.random() * 100000) + 50000,
-            status: ['pending', 'in_transit', 'delivered', 'delivered', 'cancelled'][i % 5],
-            created_at: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString(),
-            service_type: ['Reguler', 'Express', 'Same Day', 'Ekonomi'][i % 4]
-          })),
-          revenue: 5245000,
-          userCount: 12,
-          locationCount: 8,
-          error: `Tabel tidak lengkap. Klik tombol "Perbaiki Struktur Tabel Database" untuk memperbaiki.`,
-          note: `Tabel yang tidak ditemukan: ${missingTables.join(', ')}`
-        };
-      }
-      
-      // Periksa kolom penting di tabel users
-      let missingUserColumns = [];
-      try {
-        console.log('actions.ts: Memeriksa kolom tabel users dengan query langsung');
-        const userColumnsResult = await sql.query(`
-          SELECT column_name 
-          FROM information_schema.columns 
-          WHERE table_schema = 'public' AND table_name = 'users'
-        `);
-        console.log('actions.ts: Hasil query kolom users:', userColumnsResult);
-        
-        const existingUserColumns = userColumnsResult.map((row: any) => row.column_name);
-        const requiredUserColumns = ['password_hash', 'password_salt', 'status', 'updated_at'];
-        missingUserColumns = requiredUserColumns.filter(col => !existingUserColumns.includes(col));
-
-        if (missingUserColumns.length > 0) {
-          console.warn('actions.ts: Kolom tabel users tidak lengkap:', missingUserColumns);
-          
-          // Memeriksa kolom-kolom secara individual
-          console.log('actions.ts: Memeriksa kolom-kolom secara individual:');
-          for (const col of requiredUserColumns) {
-            try {
-              const checkResult = await sql.query(`
-                SELECT EXISTS (
-                  SELECT 1 FROM information_schema.columns 
-                  WHERE table_schema = 'public' 
-                  AND table_name = 'users' 
-                  AND column_name = '${col}'
-                ) as exists
-              `);
-              console.log(`actions.ts: Kolom ${col} ada:`, checkResult[0]?.exists);
-            } catch (e) {
-              console.error(`actions.ts: Error saat memeriksa kolom ${col}:`, e);
-            }
-          }
-          
-          // Kembalikan data dummy dengan pesan spesifik
-          return {
-            shipmentsByStatus: [
-              { status: 'pending', count: 10 },
-              { status: 'in_transit', count: 20 },
-              { status: 'delivered', count: 30 }
-            ],
-            recentShipments: [],
-            revenue: 0,
-            userCount: 0,
-            locationCount: 0,
-            error: `Kolom tabel users tidak lengkap. Klik tombol "Perbaiki Struktur Tabel Database" untuk memperbaiki.`,
-            note: `Kolom yang tidak ditemukan: ${missingUserColumns.join(', ')}. Tolong periksa console untuk informasi debug lebih lanjut.`,
-            missing_columns: missingUserColumns
-          };
-        }
-        console.log('actions.ts: Kolom tabel users sudah lengkap.');
-      } catch (checkError: any) {
-         console.error('actions.ts: Gagal memeriksa kolom tabel users:', checkError);
-         // Kembalikan data dummy jika pemeriksaan gagal
-         return {
-            shipmentsByStatus: [
-              { status: 'pending', count: 5 },
-              { status: 'in_transit', count: 15 },
-              { status: 'delivered', count: 25 }
-            ],
-            recentShipments: [],
-            revenue: 0,
-            userCount: 0,
-            locationCount: 0,
-            error: `Gagal memeriksa struktur tabel. Klik tombol "Perbaiki Struktur Tabel Database" untuk memperbaiki.`,
-            note: `Error: ${checkError.message}. Silakan periksa logs untuk informasi lebih lanjut.`,
-            error_details: checkError instanceof Error ? checkError.message : String(checkError)
-          };
-      }
-
-      // Verifikasi data di tabel (opsional, bisa dihapus jika tidak perlu)
-      try {
-        // Coba query sederhana untuk setiap tabel
-        const testQuery1 = await sql`SELECT COUNT(*) FROM shipments`;
-        const testQuery2 = await sql`SELECT COUNT(*) FROM service_types`;
-        console.log('actions.ts: Verifikasi tabel shipments:', testQuery1, 'service_types:', testQuery2);
-      } catch (verifyError) {
-        console.error('actions.ts: Error saat verifikasi tabel:', verifyError);
-        // Tetap lanjutkan meskipun verifikasi gagal
-      }
-      
-      // Tabel ada, ambil data dari database
-      console.log('actions.ts: Semua tabel ditemukan, mengambil data dari database');
-      
-      // Jumlah pengiriman berdasarkan status
-      let shipmentsByStatus = [];
-      try {
-        shipmentsByStatus = await sql`
-          SELECT status, COUNT(*) as count
-          FROM shipments
-          GROUP BY status
-        `;
-        console.log('actions.ts: Hasil query shipmentsByStatus:', shipmentsByStatus);
-      } catch (err) {
-        console.error('actions.ts: Error query shipmentsByStatus:', err);
-        shipmentsByStatus = [
-          { status: 'pending', count: 0 },
-          { status: 'in_transit', count: 0 },
-          { status: 'delivered', count: 0 }
-        ];
-      }
-      
-      // Pengiriman terbaru
-      let recentShipments = [];
-      try {
-        recentShipments = await sql`
-          SELECT s.*, st.name as service_type
-          FROM shipments s
-          LEFT JOIN service_types st ON s.service_type_id = st.id
-          ORDER BY s.created_at DESC
-          LIMIT 10
-        `;
-        console.log('actions.ts: Jumlah recentShipments:', recentShipments.length);
-      } catch (err) {
-        console.error('actions.ts: Error query recentShipments:', err);
-        // Fallback ke array kosong yang sudah didefinisikan
-      }
-      
-      // Total pendapatan
-      let revenue = 0;
-      try {
-        const revenueResult = await sql`
-          SELECT COALESCE(SUM(price), 0) as total
-          FROM shipments
-          WHERE status != 'cancelled'
-        `;
-        revenue = Number(revenueResult[0]?.total || 0);
-        console.log('actions.ts: Revenue result:', revenue);
-      } catch (err) {
-        console.error('actions.ts: Error query revenue:', err);
-        // Fallback ke 0 yang sudah didefinisikan
-      }
-      
-      // Jumlah pengguna
-      let userCount = 0;
-      try {
-        const userCountResult = await sql`SELECT COUNT(*) as total FROM users`;
-        userCount = Number(userCountResult[0]?.total || 0);
-        console.log('actions.ts: User count:', userCount);
-      } catch (err) {
-        console.error('actions.ts: Error query userCount:', err);
-        // Fallback ke 0 yang sudah didefinisikan
-      }
-      
-      // Jumlah lokasi
-      let locationCount = 0;
-      try {
-        const locationCountResult = await sql`SELECT COUNT(*) as total FROM locations`;
-        locationCount = Number(locationCountResult[0]?.total || 0);
-        console.log('actions.ts: Location count:', locationCount);
-      } catch (err) {
-        console.error('actions.ts: Error query locationCount:', err);
-        // Fallback ke 0 yang sudah didefinisikan
-      }
-      
-      const formattedShipmentsByStatus = shipmentsByStatus.map((item: any) => ({
-        status: item.status,
-        count: Number(item.count)
+    if (totalRevenueResult.status === 'fulfilled') {
+      result.totalRevenue = totalRevenueResult.value[0]?.total || 0;
+    }
+    
+    if (userCountResult.status === 'fulfilled') {
+      result.userCount = parseInt(userCountResult.value[0]?.count, 10) || 0;
+    }
+    
+    if (locationCountResult.status === 'fulfilled') {
+      result.locationCount = parseInt(locationCountResult.value[0]?.count, 10) || 0;
+    }
+    
+    if (driverCountResult.status === 'fulfilled') {
+      result.driverCount = parseInt(driverCountResult.value[0]?.count, 10) || 0;
+    }
+    
+    if (activeDriversResult.status === 'fulfilled') {
+      result.activeDrivers = activeDriversResult.value;
+    }
+    
+    if (weeklyShipmentsResult.status === 'fulfilled') {
+      result.weeklyShipments = weeklyShipmentsResult.value.map((item: any) => ({
+        week: new Date(item.week).toISOString().split('T')[0],
+        count: parseInt(item.count, 10)
       }));
-      
-      const dashboardData = {
-        shipmentsByStatus: formattedShipmentsByStatus.length > 0 ? formattedShipmentsByStatus : [
-          { status: 'pending', count: 0 },
-          { status: 'in_transit', count: 0 },
-          { status: 'delivered', count: 0 }
-        ],
-        recentShipments,
-        revenue,
-        userCount,
-        locationCount,
-        timestamp: new Date().toISOString(), // Tambahkan timestamp untuk menghindari cache
-        dataSource: 'database'
-      };
-      
-      console.log('actions.ts: Mengembalikan data dashboard:', dashboardData);
-      return dashboardData;
-    } catch (error) {
-      console.error('actions.ts: Error saat memeriksa tabel:', error);
-      throw error;
     }
-  } catch (error) {
-    console.error('actions.ts: Error fetching dashboard data:', error);
     
-    // Data dummy untuk fallback
-    return {
-      shipmentsByStatus: [
-        { status: 'pending', count: 15 },
-        { status: 'in_transit', count: 42 },
-        { status: 'delivered', count: 87 },
-        { status: 'cancelled', count: 5 }
-      ],
-      recentShipments: Array(10).fill(0).map((_, i) => ({
-        id: i + 1,
-        receipt_number: `WZ-${String(2023000 + i + 1).padStart(8, '0')}`,
-        sender_name: `Pengirim ${i + 1}`,
-        recipient_name: `Penerima ${i + 1}`,
-        origin_city: 'Jakarta',
-        destination_city: ['Surabaya', 'Bandung', 'Semarang', 'Yogyakarta', 'Denpasar'][i % 5],
-        weight: Math.floor(Math.random() * 10) + 1,
-        price: Math.floor(Math.random() * 100000) + 50000,
-        status: ['pending', 'in_transit', 'delivered', 'delivered', 'cancelled'][i % 5],
-        created_at: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString(),
-        service_type: ['Reguler', 'Express', 'Same Day', 'Ekonomi'][i % 4]
-      })),
-      revenue: 5245000,
-      userCount: 12,
-      locationCount: 8,
-      error: 'Using fallback data due to error',
-      details: error instanceof Error ? error.message : String(error)
-    };
+    return result;
+  } catch (error) {
+    console.error('Error in getDashboardData:', error);
+    // Return partial data instead of throwing to allow dashboard to display what was successfully retrieved
+    return result;
   }
 }
 
@@ -1456,5 +1493,244 @@ export async function deleteServiceType(id: string) {
       success: false, 
       error: "Gagal menghapus jenis layanan" 
     };
+  }
+}
+
+// Driver Actions
+export async function getDrivers({ 
+  page = 1, 
+  limit = 10, 
+  search = '' 
+}: { 
+  page?: number; 
+  limit?: number; 
+  search?: string;
+}) {
+  try {
+    console.log('getDrivers: Initializing with page =', page, 'limit =', limit, 'search =', search);
+    const sql = neon(process.env.DATABASE_URL!);
+    
+    // Log database URL for debugging (partial, for security)
+    const dbUrlStart = process.env.DATABASE_URL?.substring(0, 20) || 'not-set';
+    console.log('getDrivers: Using database URL starting with:', dbUrlStart + '...');
+    
+    const offset = (page - 1) * limit;
+    
+    // Check if drivers table exists and create it if not
+    console.log('getDrivers: Creating drivers table if not exists');
+    try {
+      await sql`
+        CREATE TABLE IF NOT EXISTS drivers (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255) NOT NULL,
+          phone VARCHAR(50) NOT NULL,
+          email VARCHAR(255),
+          license_number VARCHAR(100) NOT NULL,
+          vehicle_type VARCHAR(100) NOT NULL,
+          location_id VARCHAR(50),
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `;
+      console.log('getDrivers: Table creation check complete');
+    } catch (createError) {
+      console.error('getDrivers: Error creating table:', createError);
+      throw new Error('Failed to create drivers table');
+    }
+    
+    // Query to get total count
+    console.log('getDrivers: Fetching total count');
+    let countResult;
+    try {
+      if (search) {
+        countResult = await sql`
+          SELECT COUNT(*) FROM drivers
+          WHERE 
+            name ILIKE ${`%${search}%`} OR 
+            phone ILIKE ${`%${search}%`} OR 
+            email ILIKE ${`%${search}%`} OR 
+            license_number ILIKE ${`%${search}%`}
+        `;
+      } else {
+        countResult = await sql`SELECT COUNT(*) FROM drivers`;
+      }
+      console.log('getDrivers: Count result:', countResult);
+    } catch (countError) {
+      console.error('getDrivers: Error counting drivers:', countError);
+      throw new Error('Failed to count drivers');
+    }
+    
+    // Query to get driver data with location names
+    console.log('getDrivers: Fetching driver data');
+    let driversResult;
+    try {
+      if (search) {
+        driversResult = await sql`
+          SELECT d.*, l.name as location_name 
+          FROM drivers d
+          LEFT JOIN locations l ON d.location_id = l.id
+          WHERE 
+            d.name ILIKE ${`%${search}%`} OR 
+            d.phone ILIKE ${`%${search}%`} OR 
+            d.email ILIKE ${`%${search}%`} OR 
+            d.license_number ILIKE ${`%${search}%`}
+          ORDER BY d.created_at DESC
+          LIMIT ${limit} OFFSET ${offset}
+        `;
+      } else {
+        driversResult = await sql`
+          SELECT d.*, l.name as location_name 
+          FROM drivers d
+          LEFT JOIN locations l ON d.location_id = l.id
+          ORDER BY d.created_at DESC
+          LIMIT ${limit} OFFSET ${offset}
+        `;
+      }
+      console.log(`getDrivers: Found ${driversResult.length} drivers`);
+    } catch (fetchError) {
+      console.error('getDrivers: Error fetching drivers:', fetchError);
+      throw new Error('Failed to fetch drivers data');
+    }
+    
+    const total = parseInt(countResult[0]?.count || '0');
+    console.log('getDrivers: Total drivers:', total);
+    
+    return {
+      data: driversResult,
+      total,
+      limit,
+      page
+    };
+  } catch (error) {
+    console.error('Error in getDrivers:', error);
+    throw new Error('Failed to fetch drivers: ' + (error instanceof Error ? error.message : String(error)));
+  }
+}
+
+export async function getDriverById(id: string) {
+  try {
+    const sql = neon(process.env.DATABASE_URL!);
+    const result = await sql`
+      SELECT d.*, l.name as location_name 
+      FROM drivers d
+      LEFT JOIN locations l ON d.location_id = l.id
+      WHERE d.id = ${id}
+    `;
+    
+    if (result.length === 0) {
+      return null;
+    }
+    
+    return result[0];
+  } catch (error) {
+    console.error('Error fetching driver:', error);
+    throw new Error('Failed to fetch driver');
+  }
+}
+
+export async function addDriver({
+  name,
+  phone,
+  email,
+  license_number,
+  vehicle_type,
+  location_id
+}: {
+  name: string;
+  phone: string;
+  email: string;
+  license_number: string;
+  vehicle_type: string;
+  location_id: string;
+}) {
+  try {
+    const sql = neon(process.env.DATABASE_URL!);
+    const result = await sql`
+      INSERT INTO drivers (
+        name, 
+        phone, 
+        email, 
+        license_number, 
+        vehicle_type, 
+        location_id
+      ) VALUES (
+        ${name}, 
+        ${phone}, 
+        ${email}, 
+        ${license_number}, 
+        ${vehicle_type}, 
+        ${location_id}
+      )
+      RETURNING *
+    `;
+    
+    return result[0];
+  } catch (error) {
+    console.error('Error adding driver:', error);
+    throw new Error('Failed to add driver');
+  }
+}
+
+export async function updateDriver({
+  id,
+  name,
+  phone,
+  email,
+  license_number,
+  vehicle_type,
+  location_id
+}: {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  license_number: string;
+  vehicle_type: string;
+  location_id: string;
+}) {
+  try {
+    const sql = neon(process.env.DATABASE_URL!);
+    const result = await sql`
+      UPDATE drivers
+      SET 
+        name = ${name},
+        phone = ${phone},
+        email = ${email},
+        license_number = ${license_number},
+        vehicle_type = ${vehicle_type},
+        location_id = ${location_id},
+        updated_at = NOW()
+      WHERE id = ${id}
+      RETURNING *
+    `;
+    
+    if (result.length === 0) {
+      throw new Error('Driver not found');
+    }
+    
+    return result[0];
+  } catch (error) {
+    console.error('Error updating driver:', error);
+    throw new Error('Failed to update driver');
+  }
+}
+
+export async function deleteDriver(id: string) {
+  try {
+    const sql = neon(process.env.DATABASE_URL!);
+    const result = await sql`
+      DELETE FROM drivers
+      WHERE id = ${id}
+      RETURNING id
+    `;
+    
+    if (result.length === 0) {
+      throw new Error('Driver not found');
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting driver:', error);
+    throw new Error('Failed to delete driver');
   }
 }

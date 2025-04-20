@@ -17,7 +17,8 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   UserCircleIcon,
-  CubeIcon
+  CubeIcon,
+  UserGroupIcon
 } from '@heroicons/react/24/outline';
 
 /**
@@ -90,6 +91,12 @@ export default function AdminSidebar() {
       href: '/admin/customers', 
       icon: UserIcon, 
       current: pathname?.startsWith('/admin/customers')
+    },
+    { 
+      name: 'Supir', 
+      href: '/admin/drivers', 
+      icon: UserGroupIcon, 
+      current: pathname?.startsWith('/admin/drivers')
     },
     { 
       name: 'Jenis Layanan', 
@@ -232,7 +239,7 @@ export default function AdminSidebar() {
                   className={classNames(
                     item.current
                       ? 'bg-blue-50 text-blue-600'
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+                      : 'text-gray-900 hover:bg-gray-100 hover:text-black',
                     'group flex items-center p-2 rounded-lg transition-colors duration-150',
                     !sidebarOpen ? 'justify-center' : ''
                   )}
@@ -240,7 +247,7 @@ export default function AdminSidebar() {
                 >
                   <item.icon
                     className={classNames(
-                      item.current ? 'text-blue-600' : 'text-gray-500 group-hover:text-gray-900',
+                      item.current ? 'text-blue-600' : 'text-gray-800 group-hover:text-black',
                       'w-5 h-5 flex-shrink-0',
                       sidebarOpen ? 'me-2' : ''
                     )}

@@ -1,22 +1,27 @@
 import Image from "next/image";
 import Link from 'next/link';
-import { TruckIcon, MapPinIcon, ClockIcon, UserIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
+import { TruckIcon, MapPinIcon, ClockIcon, UserIcon, ShieldCheckIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { redirect } from 'next/navigation';
 
 const features = [
   {
-    name: 'Pengiriman Cepat',
-    description: 'Barang anda akan sampai dengan cepat dan aman ke tujuan.',
+    name: 'Pengiriman Langsung Point-to-Point',
+    description: 'Barang anda dikirim langsung dari kantor pusat ke alamat tujuan tanpa transit di gudang perantara.',
+    icon: ArrowPathIcon,
+  },
+  {
+    name: 'Pengiriman Lebih Cepat',
+    description: 'Tanpa persinggahan di gudang, barang anda sampai lebih cepat dan aman ke tujuan.',
     icon: TruckIcon,
   },
   {
     name: 'Jangkauan Luas',
-    description: 'Melayani pengiriman ke seluruh wilayah Indonesia.',
+    description: 'Melayani pengiriman ke seluruh wilayah Indonesia langsung dari pusat.',
     icon: MapPinIcon,
   },
   {
     name: 'Pelacakan Real-time',
-    description: 'Pantau status pengiriman barang anda secara real-time.',
+    description: 'Pantau status pengiriman barang anda secara real-time dari pusat hingga tujuan.',
     icon: ClockIcon,
   },
   {
@@ -26,24 +31,24 @@ const features = [
   },
   {
     name: 'Keamanan Terjamin',
-    description: 'Barang anda diasuransikan dan dijamin keamanannya.',
+    description: 'Barang anda diasuransikan dan dijamin keamanannya sepanjang perjalanan langsung ke tujuan.',
     icon: ShieldCheckIcon,
   },
 ];
 
 const testimonials = [
   {
-    content: 'Wuzz Express adalah jasa pengiriman terbaik yang pernah saya gunakan. Barang sampai dengan cepat dan kondisi sempurna!',
+    content: 'Wuzz Express sangat berbeda dengan ekspedisi lain. Barang saya dikirim langsung dari pusat tanpa transit di gudang, sampai lebih cepat dan kondisi sempurna!',
     author: 'Budi Santoso',
     role: 'Pengusaha Online',
   },
   {
-    content: 'Pelayanan yang sangat baik dan profesional. Pengiriman tepat waktu dan harga sangat bersaing.',
+    content: 'Sistem point-to-point mereka membuat pengiriman lebih efisien. Tidak perlu khawatir barang transit di berbagai gudang.',
     author: 'Siti Nuraini',
     role: 'Manager Toko Retail',
   },
   {
-    content: 'Sangat puas dengan layanan pelacakan mereka. Saya bisa memantau paket saya setiap saat.',
+    content: 'Sebagai dropshipper, kecepatan adalah kunci. Wuzz Express memahami ini dengan sistem pengiriman langsung mereka.',
     author: 'Reza Pratama',
     role: 'Dropshipper',
   },
@@ -77,10 +82,10 @@ export default function Home() {
         </div>
         <div className="relative mx-auto max-w-7xl py-24 px-6 sm:py-32 lg:px-8">
           <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl">
-            Pengiriman Barang Cepat, Aman, dan Terjangkau
+            Pengiriman Point-to-Point Langsung ke Tujuan
           </h1>
           <p className="mt-6 max-w-xl text-xl text-blue-50">
-            Wuzz Express menyediakan layanan pengiriman barang antar kota, provinsi, dan pulau dengan jaringan yang luas di seluruh Indonesia.
+            Wuzz Express menyediakan layanan pengiriman barang langsung dari kantor pusat ke alamat tujuan, tanpa transit di gudang perantara, untuk pengiriman lebih cepat dan aman.
           </p>
           <div className="mt-10 flex flex-col space-y-4 sm:flex-row sm:space-x-4 sm:space-y-0">
             <Link
@@ -133,6 +138,49 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Point to Point Explanation Section */}
+      <div className="bg-gray-50 py-16 sm:py-24">
+        <div className="mx-auto max-w-7xl px-6 lg:px-8">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+              Keunggulan Layanan Point-to-Point
+            </h2>
+            <p className="mt-6 text-lg leading-8 text-gray-600">
+              Berbeda dengan ekspedisi lain, Wuzz Express mengirim paket Anda langsung dari kantor pusat ke alamat tujuan tanpa melalui gudang-gudang perantara.
+            </p>
+          </div>
+          <div className="mx-auto mt-16 grid max-w-2xl grid-cols-1 gap-8 sm:mt-20 lg:mx-0 lg:max-w-none lg:grid-cols-3">
+            <div className="relative flex flex-col rounded-xl bg-white p-8 shadow-md">
+              <div className="flex h-16 w-16 items-center justify-center rounded-md bg-blue-100 text-blue-600">
+                <TruckIcon className="h-8 w-8" />
+              </div>
+              <h3 className="mt-6 text-xl font-semibold">Langsung ke Tujuan</h3>
+              <p className="mt-4 text-gray-600">
+                Barang dikirim langsung dari pusat ke alamat tujuan Anda, tanpa singgah di gudang transit yang berisiko menambah waktu.
+              </p>
+            </div>
+            <div className="relative flex flex-col rounded-xl bg-white p-8 shadow-md">
+              <div className="flex h-16 w-16 items-center justify-center rounded-md bg-blue-100 text-blue-600">
+                <ClockIcon className="h-8 w-8" />
+              </div>
+              <h3 className="mt-6 text-xl font-semibold">Lebih Efisien Waktu</h3>
+              <p className="mt-4 text-gray-600">
+                Menghilangkan proses transit di gudang menghemat waktu pengiriman hingga 40% dibandingkan pengiriman konvensional.
+              </p>
+            </div>
+            <div className="relative flex flex-col rounded-xl bg-white p-8 shadow-md">
+              <div className="flex h-16 w-16 items-center justify-center rounded-md bg-blue-100 text-blue-600">
+                <ShieldCheckIcon className="h-8 w-8" />
+              </div>
+              <h3 className="mt-6 text-xl font-semibold">Risiko Kerusakan Minimal</h3>
+              <p className="mt-4 text-gray-600">
+                Mengurangi proses bongkar muat yang berulang kali, meminimalkan risiko kerusakan dan kehilangan barang Anda.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Features Section */}
       <div className="bg-white py-24 sm:py-32">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
@@ -142,7 +190,7 @@ export default function Home() {
               Mengapa Memilih Wuzz Express?
             </p>
             <p className="mt-6 text-lg leading-8 text-gray-600">
-              Wuzz Express menawarkan layanan pengiriman barang dengan kualitas terbaik, didukung oleh tim profesional dan jaringan yang luas.
+              Wuzz Express menawarkan layanan pengiriman point-to-point dengan kualitas terbaik, didukung oleh tim profesional dan jaringan yang luas.
             </p>
           </div>
           <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-none">
@@ -162,7 +210,7 @@ export default function Home() {
           </div>
         </div>
       </div>
-
+      
       {/* Services Section */}
       <div id="layanan" className="bg-blue-50 py-24 sm:py-32">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
@@ -172,14 +220,14 @@ export default function Home() {
               Pilihan Layanan Pengiriman
             </p>
             <p className="mt-6 text-lg leading-8 text-gray-600">
-              Kami menawarkan berbagai pilihan layanan pengiriman sesuai dengan kebutuhan Anda.
+              Kami menawarkan berbagai pilihan layanan pengiriman point-to-point sesuai dengan kebutuhan Anda.
             </p>
           </div>
           <div className="mx-auto mt-16 grid max-w-2xl grid-cols-1 gap-8 sm:mt-20 lg:mx-0 lg:max-w-none lg:grid-cols-3">
             <div className="flex flex-col rounded-xl bg-white p-8 shadow-md ring-1 ring-gray-200">
-              <h3 className="text-xl font-semibold text-gray-900">Reguler</h3>
+              <h3 className="text-xl font-semibold text-gray-900">Point-to-Point Reguler</h3>
               <p className="mt-4 text-gray-600">
-                Layanan pengiriman barang antar kota dengan waktu pengiriman 1-3 hari tergantung jarak.
+                Layanan pengiriman langsung antar kota dengan waktu pengiriman 1-2 hari tergantung jarak.
               </p>
               <p className="mt-4 text-lg font-semibold text-blue-600">Mulai dari Rp 10.000/kg</p>
               <Link
@@ -190,9 +238,9 @@ export default function Home() {
               </Link>
             </div>
             <div className="flex flex-col rounded-xl bg-white p-8 shadow-md ring-1 ring-gray-200">
-              <h3 className="text-xl font-semibold text-gray-900">Ekonomi</h3>
+              <h3 className="text-xl font-semibold text-gray-900">Point-to-Point Ekonomi</h3>
               <p className="mt-4 text-gray-600">
-                Layanan pengiriman barang antar pulau dengan waktu pengiriman 3-7 hari tergantung destinasi.
+                Layanan pengiriman langsung antar pulau dengan waktu pengiriman 2-5 hari tergantung destinasi.
               </p>
               <p className="mt-4 text-lg font-semibold text-blue-600">Mulai dari Rp 15.000/kg</p>
               <Link
@@ -203,9 +251,9 @@ export default function Home() {
               </Link>
             </div>
             <div className="flex flex-col rounded-xl bg-white p-8 shadow-md ring-1 ring-gray-200">
-              <h3 className="text-xl font-semibold text-gray-900">Express</h3>
+              <h3 className="text-xl font-semibold text-gray-900">Point-to-Point Express</h3>
               <p className="mt-4 text-gray-600">
-                Layanan pengiriman barang khusus seperti barang berharga, pecah belah, atau berukuran besar.
+                Layanan pengiriman langsung prioritas untuk barang penting dengan waktu pengiriman 1 hari kerja.
               </p>
               <p className="mt-4 text-lg font-semibold text-blue-600">Mulai dari Rp 20.000/kg</p>
               <Link
@@ -249,11 +297,11 @@ export default function Home() {
                       </svg>
                     ))}
                   </div>
-                  <p className="mt-4 text-lg text-gray-600">{testimonial.content}</p>
+                  <p className="mt-4 text-lg font-medium text-gray-900">{testimonial.content}</p>
                 </div>
-                <div className="mt-8">
-                  <div className="font-semibold text-gray-900">{testimonial.author}</div>
-                  <div className="text-sm text-gray-500">{testimonial.role}</div>
+                <div className="mt-6">
+                  <p className="font-semibold text-gray-900">{testimonial.author}</p>
+                  <p className="text-sm text-gray-600">{testimonial.role}</p>
                 </div>
               </div>
             ))}
@@ -262,25 +310,22 @@ export default function Home() {
       </div>
 
       {/* CTA Section */}
-      <div className="bg-blue-600">
-        <div className="mx-auto max-w-7xl px-6 py-24 sm:py-32 lg:flex lg:items-center lg:justify-between lg:px-8">
-          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            Siap mengirim barang Anda?
-            <br />
-            Hubungi kami sekarang.
-          </h2>
-          <div className="mt-10 flex items-center gap-x-6 lg:mt-0 lg:flex-shrink-0">
+      <div className="bg-blue-700">
+        <div className="mx-auto max-w-7xl py-16 px-6 sm:py-24 lg:px-8 lg:flex lg:items-center">
+          <div className="lg:w-0 lg:flex-1">
+            <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl" id="newsletter-headline">
+              Kirim Barang Anda Sekarang
+            </h2>
+            <p className="mt-3 max-w-3xl text-lg leading-6 text-blue-100">
+              Nikmati pengiriman point-to-point yang lebih cepat, efisien, dan aman sampai ke tujuan.
+            </p>
+          </div>
+          <div className="mt-8 lg:mt-0 lg:ml-8">
             <Link
-              href="/public/kontak"
-              className="rounded-md bg-white px-6 py-3 text-base font-semibold text-blue-600 shadow-sm hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              href="/auth/register"
+              className="inline-flex items-center rounded-md border border-transparent bg-white px-6 py-3 text-base font-medium text-blue-700 shadow-md hover:bg-blue-50"
             >
-              Hubungi Kami
-            </Link>
-            <Link
-              href="/public/tarif"
-              className="text-base font-semibold leading-6 text-white"
-            >
-              Cek Tarif <span aria-hidden="true">→</span>
+              Daftar Sekarang
             </Link>
           </div>
         </div>
